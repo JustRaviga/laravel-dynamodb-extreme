@@ -1,0 +1,29 @@
+{
+    "name": "classmanager/dynamodb",
+    "description": "Class Manager DynamoDb access package",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Class Manager",
+            "email": "hello@classmanager.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^10.0",
+        "aws/aws-sdk-php": "^3.269"
+    },
+    "autoload": {
+        "psr-4": {
+            "ClassManager\\DynamoDb\\" : "src/"
+        }
+    },
+    "extra": {
+        "laravel" : {
+            "providers" : [
+                "ClassManager\\DynamoDb\\DynamoDbServiceProvider"
+            ]
+        }
+    }
+}
