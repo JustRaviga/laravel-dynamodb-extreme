@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ClassManager\DynamoDb\DynamoDb\Comparisons;
 
 class BetweenComparison extends Comparison

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace ClassManager\DynamoDb\Models;
 
 use _PHPStan_a3459023a\Symfony\Component\String\Exception\RuntimeException;
