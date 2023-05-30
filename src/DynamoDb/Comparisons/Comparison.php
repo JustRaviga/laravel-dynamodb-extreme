@@ -6,9 +6,35 @@ namespace ClassManager\DynamoDb\DynamoDb\Comparisons;
 
 abstract class Comparison
 {
-    abstract public function __toString(): string;
-    abstract public function expressionAttributeName(): array;
-    abstract public function expressionAttributeValue(): array;
+    protected string $fieldName;
+    protected string $fieldValue;
 
-    abstract public function compare($value1, $value2): bool;
+    public function __construct(string $fieldName, string|int|float|null $fieldValue)
+    {
+        $this->fieldName = $fieldName;
+        $this->fieldValue = $fieldValue;
+    }
+
+    abstract public function __toString(): string;
+
+    /**
+     * @param array<string|number> $values
+     */
+    abstract public function compare(array $values): bool;
+
+    /**
+     * @return array<string,string>
+     */
+    public function expressionAttributeName(): array
+    {
+        return ["#{$this->fieldName}" => $this->fieldName];
+    }
+
+    /**
+     * @return array<string,string|number>
+     */
+    public function expressionAttributeValue(): array
+    {
+        return [":{$this->fieldName}" => $this->fieldValue];
+    }
 }

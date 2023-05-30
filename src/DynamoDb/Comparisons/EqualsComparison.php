@@ -6,32 +6,20 @@ namespace ClassManager\DynamoDb\DynamoDb\Comparisons;
 
 class EqualsComparison extends Comparison
 {
-    protected string $fieldName;
-    protected string $fieldValue;
-
-    public function __construct($fieldName, $fieldValue)
-    {
-        $this->fieldName = $fieldName;
-        $this->fieldValue = $fieldValue;
-    }
-
     public function __toString(): string
     {
-        return "#$this->fieldName = :$this->fieldName";
+        return "#{$this->fieldName} = :{$this->fieldName}";
     }
 
-    public function expressionAttributeName(): array
+    /**
+     * @param array<string|number> $values
+     */
+    public function compare(array $values): bool
     {
-        return ["#$this->fieldName" => $this->fieldName];
-    }
+        if (count($values) !== 2) {
+            throw new \ValueError('Must have exactly 2 parameters to compare with ' . $this::class);
+        }
 
-    public function expressionAttributeValue(): array
-    {
-        return [":$this->fieldName" => $this->fieldValue];
-    }
-
-    public function compare($value1, $value2): bool
-    {
-        return $value1 === $value2;
+        return $values[0] === $values[1];
     }
 }

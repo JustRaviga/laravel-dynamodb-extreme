@@ -4,19 +4,24 @@ declare(strict_types=1);
 
 namespace ClassManager\DynamoDb\DynamoDb\Comparisons;
 
+use ValueError;
+
 class LessThanComparison extends Comparison
 {
-    protected string $fieldName;
-    protected string $fieldValue;
-
-    public function __construct($fieldName, $fieldValue)
-    {
-        $this->fieldName = $fieldName;
-        $this->fieldValue = $fieldValue;
-    }
-
     public function __toString(): string
     {
-        return "$this->fieldName < $this->fieldValue";
+        return "{$this->fieldName} < {$this->fieldValue}";
+    }
+
+    /**
+     * @param array<string|number> $values
+     */
+    public function compare(array $values): bool
+    {
+        if (count($values) !== 2) {
+            throw new ValueError('Must have exactly 2 parameters to compare with ' . $this::class);
+        }
+
+        return $values[0] < $values[2];
     }
 }
