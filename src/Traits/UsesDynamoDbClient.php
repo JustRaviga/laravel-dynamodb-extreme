@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace ClassManager\DynamoDb\Traits;
 
 use ClassManager\DynamoDb\DynamoDb\Client;
-use ClassManager\Exceptions\DynamoDbClientNotInContainerException;
+use ClassManager\DynamoDb\Exceptions\DynamoDbClientNotInContainerException;
 use Illuminate\Container\EntryNotFoundException;
 
 trait UsesDynamoDbClient

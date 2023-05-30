@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace ClassManager\DynamoDb\Exceptions;
 
-final class DynamoDbClientNotInContainer extends \RuntimeException
+use RuntimeException;
+
+final class DynamoDbClientNotInContainer extends RuntimeException
 {
     public function __construct()
     {
