@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ClassManager\DynamoDb\Exceptions;
 
-class InvalidRelationException extends \RuntimeException
+final class InvalidRelation extends \RuntimeException
 {
     public function __construct(string $relation)
     {

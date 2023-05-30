@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace ClassManager\DynamoDb\Exceptions;
 
-class DynamoDbClientNotInContainerException extends \RuntimeException
+final class DynamoDbClientNotInContainer extends \RuntimeException
 {
     public function __construct()
     {
-        parent::__construct("The DynamoDb client has not been injected into the container!");
+        parent::__construct('The DynamoDb client has not been injected into the container!');
     }
 }

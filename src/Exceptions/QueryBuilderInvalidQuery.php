@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ClassManager\DynamoDb\Exceptions;
 
-class QueryBuilderInvalidQueryException extends \RuntimeException
+final class QueryBuilderInvalidQuery extends \RuntimeException
 {
 
 }

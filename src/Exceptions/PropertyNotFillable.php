@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ClassManager\DynamoDb\Exceptions;
 
-class PropertyNotFillableException extends \RuntimeException
+final class PropertyNotFillable extends \RuntimeException
 {
     public function __construct(string $property)
     {

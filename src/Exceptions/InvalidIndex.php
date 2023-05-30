@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ClassManager\DynamoDb\Exceptions;
 
-class InvalidIndexException extends \RuntimeException
+final class InvalidIndex extends \RuntimeException
 {
     public function __construct(string $index)
     {
