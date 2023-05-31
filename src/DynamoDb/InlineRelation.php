@@ -11,9 +11,7 @@ use JsonException;
 class InlineRelation extends BaseRelation
 {
     /**
-     * @param DynamoDbModel $parent
      * @param class-string<DynamoDbModel> $relatedModel
-     * @param string $relatedProperty
      */
     public function __construct(
         protected readonly DynamoDbModel $parent,
@@ -29,25 +27,40 @@ class InlineRelation extends BaseRelation
     public function get(): Collection
     {
         if (!$this->haveFetchedRelation) {
-            $model = $this->relatedModel;
-            $models = collect(
-                json_decode(
-                    json: $this->parent->attributes()[$this->relatedProperty] ?? '[]',
-                    associative: true,
-                    flags: JSON_THROW_ON_ERROR,
-                )
-            )->map(fn ($data) => $model::make($data));
-
-            $this->models = $models;
-            $this->haveFetchedRelation = true;
+            $this->unpackRelatedModels();
         }
 
         return $this->models;
     }
 
-    public function save(DynamoDbModel $model): DynamoDbModel
+    protected function unpackRelatedModels(): void
     {
-        return tap($model, function(DynamoDbModel $model) {
+        $model = $this->relatedModel;
+
+        $modelData = $this->parent->attributes()[$this->relatedProperty] ?? '[]';
+
+        if (is_string($modelData)) {
+            $modelData = json_decode(
+                json: $modelData,
+                associative: true,
+                flags: JSON_THROW_ON_ERROR,
+            );
+        }
+
+        $models = collect($modelData)->map(fn ($data) => $model::make($data));
+
+        $this->models = $models;
+        $this->haveFetchedRelation = true;
+    }
+
+    public function save(DynamoDbModel|array $model): DynamoDbModel
+    {
+        if (!$model instanceof DynamoDbModel) {
+            $class = $this->relatedModel;
+            $model = $class::make($model);
+        }
+
+        return tap($model, function (DynamoDbModel $model): void {
             assert($model instanceof $this->relatedModel);
 
             $parent = $this->parent;
@@ -58,18 +71,35 @@ class InlineRelation extends BaseRelation
             $model->fill([
                 $mappedPartitionKey => $parent->$mappedPartitionKey,
                 $mappedSortKey => $parent->$mappedSortKey,
-            ]);
-            // todo save model using putItem with a complicated search key
+            ])->saveInlineRelation();
 
             $this->add($model);
         });
     }
 
-    public function add(DynamoDbModel $model): self
+    public function add(array|DynamoDbModel $model): self
     {
         if (!$this->haveFetchedRelation) {
             // unpack field if required
             $this->get();
+        }
+
+        if (! $model instanceof DynamoDbModel) {
+            $class = $this->relatedModel;
+            $model = $class::make($model);
+        }
+
+        // If the model hasn't been saved yet...
+        if (count($model->dirtyAttributes()) === count($model->attributes())) {
+            $parent = $this->parent;
+
+            $mappedPartitionKey = $parent->getMappedPropertyName($parent->partitionKey());
+            $mappedSortKey = $parent->getMappedPropertyName($parent->sortKey());
+
+            $model->fill([
+                $mappedPartitionKey => $parent->$mappedPartitionKey,
+                $mappedSortKey => $parent->$mappedSortKey,
+            ]);
         }
 
         parent::add($model);

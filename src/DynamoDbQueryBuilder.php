@@ -8,8 +8,8 @@ use ClassManager\DynamoDb\DynamoDb\Client;
 use ClassManager\DynamoDb\DynamoDb\ComparisonBuilder;
 use ClassManager\DynamoDb\DynamoDb\Comparisons\Comparison;
 use ClassManager\DynamoDb\DynamoDb\Relation;
-use ClassManager\DynamoDb\Exceptions\InvalidRelationException;
-use ClassManager\DynamoDb\Exceptions\QueryBuilderInvalidQueryException;
+use ClassManager\DynamoDb\Exceptions\InvalidRelation;
+use ClassManager\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
 use ClassManager\DynamoDb\Models\DynamoDbModel;
 use ClassManager\DynamoDb\Traits\UsesDynamoDbClient;
 use Illuminate\Support\Collection;
@@ -20,7 +20,10 @@ class DynamoDbQueryBuilder
 
     protected ?string $index = null;
 
-    // Populated using ->where('field', 'value')
+    /**
+     * Populated using ->where('field', 'value')
+     * @var array<string, string> $filters
+     */
     protected array $filters = [];
 
     protected bool $sortOrderDescending = false;
@@ -40,86 +43,169 @@ class DynamoDbQueryBuilder
 
     protected Client $client;
 
-    public static function query(): self
-    {
-        return new self();
-    }
-
     public function __construct()
     {
         $this->client = $this->getClient();
     }
 
-    public function model(DynamoDbModel $model): self
+    protected function _query(): Collection
     {
-        $this->model = $model;
+        // Attempt to guess which index to use only if an index hasn't already been set (through setIndex, for example)
+        if ($this->index === null && $this->model !== null ) {
+            $this->guessIndex($this->index);
+        }
 
-        return $this;
-    }
+        // Ensure we have correct partition and sort key searches set up
+        $parsedFilters = $this->validateFilters();
 
-    public function where(...$props): self
-    {
-        $this->filters[] = $props;
-        return $this;
-    }
+        $queryParams = $this->buildQueryParams($parsedFilters);
 
-    public function sortDescending(): self
-    {
-        $this->sortOrderDescending = true;
+        // DynamoDb request
+        $response = $this->client->query($queryParams);
 
-        return $this;
-    }
-    public function sortAscending(): self
-    {
-        $this->sortOrderDescending = false;
+        // If requesting raw output, just return the list of item data
+        if ($this->model === null || $this->raw === true) {
+            return collect($response['Items'])->map(
+                fn (array $item) => collect($item)->map(
+                    fn ($property) => $this->client->unmarshalValue($property)
+                )->toArray()
+            );
+        }
 
-        return $this;
-    }
+        // Build model objects based on relations mentioned in the model that's been set
+        $models = collect($response['Items'])->map(fn ($item) => $this->buildModelFromItem($item));
 
-    public function limit(int $limit): self
-    {
-        $this->limit = $limit;
+        // Attach relationships between models
+        if (count($this->relationList)) {
+            return collect([$this->attachModelRelations($models)]);
+        }
 
-        return $this;
-    }
-
-    public function table(string $table): self
-    {
-        $this->table = $table;
-
-        return $this;
+        return $models;
     }
 
     /**
-     * Will return the raw data fetched from DynamoDb rather than coercing it into models
-     * @return $this
+     * @param Collection<DynamoDbModel> $models
      */
-    public function raw(): self
+    protected function attachModelRelations(Collection $models): DynamoDbModel
     {
-        $this->raw = true;
-        return $this;
+        // Find the instance of the base model
+        /** @var DynamoDbModel $baseModel */
+        $baseModel = $models->first(function (DynamoDbModel $model) {
+            return $model::class === $this->model::class;
+        });
+
+        assert($baseModel instanceof $this->model);
+
+        // Look at each other model being returned and attach them to relations on the base model
+        $models->each(function ($model): void {
+            foreach($this->relationList as $relationName => $relation) {
+                if ($this->model->hasRelation($relationName)) {
+                    $relation->add($model);
+                }
+            }
+        });
+
+        return $baseModel;
     }
 
-    public function withIndex(string $index): self
+    /**
+     * @param array<string,array<string,string|number|bool>|string|number|bool $item
+     */
+    protected function buildModelFromItem(array $item): DynamoDbModel
     {
-        $this->index = $index;
-        return $this;
+        foreach($this->relationList as $relation) {
+            // Check relations that we've been asked to load to see if they match with the item being created
+
+            assert($relation instanceof Relation);
+
+            $class = $relation->relatedModel();
+            /** @var DynamoDbModel $model */
+            $model = new $class();
+
+            $comparer = ComparisonBuilder::fromArray($relation->relation());
+
+            // This gets the values to compare against.
+            // We use array_slice to account for "between" that has 2 values
+            $values = array_slice($relation->relation(), 2);
+
+            $modelSortKey = $this->client->unmarshalValue($item[$model->sortKey()]);
+
+            // We matched the relation!
+            if ($comparer->compare([$modelSortKey, ...$values])) {
+                return $model->fill(collect($item)->map(
+                    fn ($property) => $this->client->unmarshalValue($property)
+                )->toArray());
+            }
+        }
+
+        return $this->model::make(collect($item)->map(
+            fn ($property) => $this->client->unmarshalValue($property)
+        )->toArray());
     }
 
-    public function withRelation(string $relationName): self
+    /**
+     * @return array<int,string>
+     */
+    protected function buildQueryExprAttrNames(Collection $parsedFilters): array
     {
-        if (!$this->model->hasRelation($relationName)) {
-            throw new InvalidRelationException($relationName);
+        return $parsedFilters
+            ->mapWithKeys(fn (Comparison $filter, $key) => $filter->expressionAttributeName())
+            ->toArray();
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    protected function buildQueryExprAttrValues(Collection $parsedFilters): array
+    {
+        return $parsedFilters
+            ->mapWithKeys(fn (Comparison $filter) => $filter->expressionAttributeValue())
+            ->map(fn (string $value) => $this->client->marshalValue($value))
+            ->toArray();
+    }
+
+    protected function buildQueryKeyConditions(Collection $parsedFilters): string
+    {
+        return $parsedFilters
+            ->map(fn ($filter) => (string) $filter)
+            ->implode(' AND ');
+    }
+
+    /**
+     * @return array<string,string|array<string|int,string>>
+     */
+    protected function buildQueryParams(Collection $parsedFilters): array
+    {
+        $queryParams = [
+            'TableName' => $this->table,
+            'KeyConditionExpression' => $this->buildQueryKeyConditions($parsedFilters),
+            'ExpressionAttributeNames' => $this->buildQueryExprAttrNames($parsedFilters),
+            'ExpressionAttributeValues' => $this->buildQueryExprAttrValues($parsedFilters),
+        ];
+
+        if ($this->index) {
+            $queryParams['IndexName'] = $this->index;
         }
 
-        $relation = $this->model->{$relationName}();
-
-        // ensure this is an actual relationship
-        if ($relation instanceof Relation) {
-            $this->relationList[$relationName] = $relation;
+        if ($this->index === null && $this->model !== null) {
+            // Consistent read can only be used with the Primary index, and when querying from a model
+            $queryParams['ConsistentRead'] = $this->model->consistentRead();
         }
 
-        return $this;
+        if ($this->sortOrderDescending) {
+            $queryParams['ScanIndexForward'] = false;
+        }
+
+        if ($this->limit !== null) {
+            $queryParams['Limit'] = $this->limit;
+        }
+
+        return $queryParams;
+    }
+
+    public function get(): Collection
+    {
+        return $this->_query();
     }
 
     protected function guessIndex(): void
@@ -152,6 +238,64 @@ class DynamoDbQueryBuilder
         }
     }
 
+    public function first(): DynamoDbModel
+    {
+        return $this->_query()->first();
+    }
+
+    public function limit(int $limit): self
+    {
+        $this->limit = $limit;
+
+        return $this;
+    }
+
+    public function model(DynamoDbModel $model): self
+    {
+        $this->model = $model;
+
+        return $this;
+    }
+
+    public static function query(): self
+    {
+        return new self();
+    }
+
+    /**
+     * Will return the raw data fetched from DynamoDb rather than coercing it into models
+     * @return $this
+     */
+    public function raw(): self
+    {
+        $this->raw = true;
+        return $this;
+    }
+
+    public function sortAscending(): self
+    {
+        $this->sortOrderDescending = false;
+
+        return $this;
+    }
+
+    public function sortDescending(): self
+    {
+        $this->sortOrderDescending = true;
+
+        return $this;
+    }
+
+    public function table(string $table): self
+    {
+        $this->table = $table;
+
+        return $this;
+    }
+
+    /**
+     * @return array<string,string>
+     */
     protected function validateFiltersAgainstModel(): array
     {
         $mappedFilters = collect($this->filters)->map(function ($filter) {
@@ -164,7 +308,7 @@ class DynamoDbQueryBuilder
             [ $attributeName ] = $mappedFilters[0];
 
             if ($attributeName !== $this->model->partitionKey($this->index)) {
-                throw new QueryBuilderInvalidQueryException("Cannot Query using {{$attributeName}}");
+                throw new QueryBuilderInvalidQuery("Cannot Query using {{$attributeName}}");
             }
         } else {
             foreach ($mappedFilters as $filter) {
@@ -177,7 +321,7 @@ class DynamoDbQueryBuilder
                 }
 
                 // If this was neither partition key, nor sort key, it can't be used
-                throw new QueryBuilderInvalidQueryException("Cannot Query using {{$attributeName}}");
+                throw new QueryBuilderInvalidQuery("Cannot Query using {{$attributeName}}");
             }
         }
 
@@ -188,7 +332,7 @@ class DynamoDbQueryBuilder
     {
         // We can only have a maximum of 2 filters (partition and sort key)
         if (count($this->filters) > 2) {
-            throw new QueryBuilderInvalidQueryException('Can only search based on Partition key and Sort key');
+            throw new QueryBuilderInvalidQuery('Can only search based on Partition key and Sort key');
         }
 
         $mappedFilters = $this->model !== null
@@ -198,159 +342,31 @@ class DynamoDbQueryBuilder
         return collect($mappedFilters)->map(fn ($filter) => ComparisonBuilder::fromArray($filter));
     }
 
-    protected function _query(): Collection
+    public function where(...$props): self
     {
-        // Attempt to guess which index to use only if an index hasn't already been set (through setIndex, for example)
-        if ($this->index === null && $this->model !== null ) {
-            $this->guessIndex($this->index);
-        }
-
-        // Ensure we have correct partition and sort key searches set up
-        $parsedFilters = $this->validateFilters();
-
-        $queryParams = $this->buildQueryParams($parsedFilters);
-
-        // DynamoDb request
-        $response = $this->client->query($queryParams);
-
-        // If requesting raw output, just return the list of item data
-        if ($this->model === null || $this->raw === true) {
-            return collect($response['Items'])->map(fn (array $item)
-                => collect($item)->map(fn ($property)
-                    => $this->client->unmarshalValue($property)
-                )->toArray()
-            );
-        }
-
-        // Build model objects based on relations mentioned in the model that's been set
-        $models = collect($response['Items'])->map(fn ($item) =>
-            $this->buildModelFromItem($item)
-        );
-
-        // Attach relationships between models
-        if (count($this->relationList)) {
-            return collect([$this->attachModelRelations($models)]);
-        }
-
-        return $models;
+        $this->filters[] = $props;
+        return $this;
     }
 
-    public function get(): Collection
+    public function withIndex(string $index): self
     {
-        return $this->_query();
+        $this->index = $index;
+        return $this;
     }
 
-    public function first(): DynamoDbModel
+    public function withRelation(string $relationName): self
     {
-        return $this->_query()->first();
-    }
-
-    /**
-     * @param Collection<DynamoDbModel> $models
-     * @return DynamoDbModel
-     */
-    protected function attachModelRelations(Collection $models): DynamoDbModel
-    {
-        // Find the instance of the base model
-        /** @var DynamoDbModel $baseModel */
-        $baseModel = $models->first(function (DynamoDbModel $model) {
-            return get_class($model) === get_class($this->model);
-        });
-
-        assert($baseModel instanceof $this->model);
-
-        // Look at each other model being returned and attach them to relations on the base model
-        $models->each(function ($model) use ($baseModel) {
-            foreach($this->relationList as $relationName => $relation) {
-                if ($this->model->hasRelation($relationName)) {
-                    $relation->add($model);
-                }
-            }
-        });
-
-        return $baseModel;
-    }
-
-    protected function buildModelFromItem(array $item): DynamoDbModel
-    {
-        foreach($this->relationList as $relationName => $relation) {
-            // Check relations that we've been asked to load to see if they match with the item being created
-
-            assert($relation instanceof Relation);
-
-            /** @var DynamoDbModel $model */
-            $class = $relation->relatedModel();
-            $model = new $class;
-
-            $comparer = ComparisonBuilder::fromArray($relation->relation());
-
-            // This gets the values to compare against.
-            // We use array_slice to account for "between" that has 2 values
-            $values = array_slice($relation->relation(), 2);
-
-            $modelSortKey = $this->client->unmarshalValue($item[$model->sortKey()]);
-
-            // We matched the relation!
-            if ($comparer->compare($modelSortKey, ...$values)) {
-                return $model->fill(collect($item)->map(fn ($property) =>
-                    $this->client->unmarshalValue($property)
-                )->toArray());
-            }
+        if (!$this->model->hasRelation($relationName)) {
+            throw new InvalidRelation($relationName);
         }
 
-        return $this->model::make(collect($item)->map(fn ($property) =>
-            $this->client->unmarshalValue($property)
-        )->toArray());
-    }
+        $relation = $this->model->{$relationName}();
 
-    protected function buildQueryParams(Collection $parsedFilters): array
-    {
-        $queryParams = [
-            'TableName' => $this->table,
-            'KeyConditionExpression' => $this->buildQueryKeyConditions($parsedFilters),
-            'ExpressionAttributeNames' => $this->buildQueryExprAttrNames($parsedFilters),
-            'ExpressionAttributeValues' => $this->buildQueryExprAttrValues($parsedFilters),
-        ];
-
-        if ($this->index) {
-            $queryParams['IndexName'] = $this->index;
+        // ensure this is an actual relationship
+        if ($relation instanceof Relation) {
+            $this->relationList[$relationName] = $relation;
         }
 
-        if ($this->index === null && $this->model !== null) {
-            // Consistent read can only be used with the Primary index, and when querying from a model
-            $queryParams['ConsistentRead'] = $this->model->consistentRead();
-        }
-
-        if ($this->sortOrderDescending) {
-            $queryParams['ScanIndexForward'] = false;
-        }
-
-        if ($this->limit !== null) {
-            $queryParams['Limit'] = $this->limit;
-        }
-
-        return $queryParams;
-    }
-
-    protected function buildQueryKeyConditions(Collection $parsedFilters): string
-    {
-        return $parsedFilters
-            ->map(fn ($filter) => (string) $filter)
-            ->implode(' AND ');
-    }
-
-    protected function buildQueryExprAttrNames(Collection $parsedFilters): array
-    {
-        return $parsedFilters
-            ->mapWithKeys(fn (Comparison $filter, $key) => $filter->expressionAttributeName())
-            ->toArray();
-    }
-
-    protected function buildQueryExprAttrValues(Collection $parsedFilters): array
-    {
-        return $parsedFilters
-            ->mapWithKeys(fn (Comparison $filter) => $filter->expressionAttributeValue())
-            ->map(fn (string $value) => $this->client->marshalValue($value))
-            ->toArray();
+        return $this;
     }
 }

@@ -19,7 +19,6 @@ trait HasRelations
 
     /**
      * Returns a name by which this model is known as a relation to other models.
-     * @return string
      */
     public static function relationName(): string
     {
@@ -28,19 +27,22 @@ trait HasRelations
 
     /**
      * Used for matching on sort keys for related models
-     * @return array
+     * @return array<string,string,string>
      */
     public static function relationSearchParams(): array
     {
         $className = DynamoDbHelpers::upperCaseClassName(static::class);
 
         return [
-            (new static)->sortKey(),
+            static::sortKey(),
             'begins_with',
-            "$className#"
+            "{$className}#"
         ];
     }
 
+    /**
+     * @return array<BaseRelation> the relations already loaded for this model
+     */
     public function relations(): array
     {
         return $this->relations;
@@ -48,8 +50,7 @@ trait HasRelations
 
     /**
      * Flag to show whether this relation exists
-     * @param string $relationName
-     * @return bool
+     * @return bool whether the relation is defined on the model
      */
     public function hasRelation(string $relationName): bool
     {
@@ -59,7 +60,6 @@ trait HasRelations
     /**
      * Configure a relationship to a child model
      * @param class-string<DynamoDbModel> $relatedClass
-     * @return BaseRelation
      */
     protected function addRelation(string $relatedClass): BaseRelation
     {

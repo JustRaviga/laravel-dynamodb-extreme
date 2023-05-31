@@ -16,9 +16,8 @@ class Relation extends BaseRelation
     protected bool $haveFetchedRelation = false;
 
     /**
-     * @param DynamoDbModel $parent
      * @param class-string<DynamoDbModel> $relatedModel
-     * @param array $relation
+     * @param array<string> $relation
      */
     public function __construct(
         protected readonly DynamoDbModel $parent,
@@ -33,7 +32,7 @@ class Relation extends BaseRelation
             $model = $this->relatedModel;
             $parent = $this->parent;
             $models = $model::query()
-                ->where( $parent->partitionKey(), $parent->{$parent->getMappedPropertyName($parent->partitionKey())})
+                ->where($parent->partitionKey(), $parent->getMappedPartitionKeyValue())
                 ->where(...$this->relation)
                 ->get();
 
@@ -44,16 +43,21 @@ class Relation extends BaseRelation
         return $this->models;
     }
 
-    public function save(DynamoDbModel $model): DynamoDbModel
+    public function save(array|DynamoDbModel $model): DynamoDbModel
     {
-        return tap($model, function($model) {
+        if (! $model instanceof DynamoDbModel) {
+            $class = $this->relatedModel;
+            $model = $class::make($model);
+        }
+
+        return tap($model, function($model): void {
             assert($model instanceof $this->relatedModel);
 
             $parent = $this->parent;
 
             // Add the parent class's partition key to this model
             $model->update([
-                $parent->partitionKey() => $parent->{$parent->getMappedPropertyName($parent->partitionKey())},
+                $parent->partitionKey() => $parent->getMappedPartitionKeyValue(),
             ]);
 
             $this->add($model);
@@ -65,6 +69,9 @@ class Relation extends BaseRelation
         return $this->relatedModel;
     }
 
+    /**
+     * @return array<string>
+     */
     public function relation(): array
     {
         return $this->relation;

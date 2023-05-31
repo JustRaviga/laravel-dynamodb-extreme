@@ -17,17 +17,27 @@ abstract class BaseRelation
 
     abstract public function get(): Collection;
 
-    abstract public function save(DynamoDbModel $model): DynamoDbModel;
+    /**
+     * Accepts either an array of data that will be used to create a DynamoDbModel instance, or a DynamoDbModel instance
+     * itself.
+     * @param array|DynamoDbModel $model
+     * @return DynamoDbModel
+     */
+    abstract public function save(array|DynamoDbModel $model): DynamoDbModel;
 
-    public function add(DynamoDbModel $model): self
+    /**
+     * Accepts either an array of data that will be used to create a DynamoDbModel instance, or a DynamoDbModel instance
+     * itself.
+     * @param array|DynamoDbModel $model
+     * @return BaseRelation
+     */
+    public function add(array|DynamoDbModel $model): static
     {
-        if ($this->models === null) {
+        if (!$this->haveFetchedRelation) {
             $this->models = collect();
         }
 
-        if ($this->models->doesntContain(fn (DynamoDbModel $existingModel)
-            => $model->uniqueKey() === $existingModel->uniqueKey())
-        ) {
+        if ($this->models->doesntContain(fn (DynamoDbModel $existingModel) => $model->uniqueKey() === $existingModel->uniqueKey())) {
             $this->models->add($model);
         }
 

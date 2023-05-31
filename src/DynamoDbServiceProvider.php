@@ -11,7 +11,7 @@ class DynamoDbServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // todo add any register methods here
     }
 
     public function boot(): void
