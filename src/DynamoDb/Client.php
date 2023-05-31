@@ -6,7 +6,10 @@ namespace ClassManager\DynamoDb\DynamoDb;
 
 use Aws\DynamoDb\DynamoDbClient;
 use Aws\DynamoDb\Marshaler;
+use Aws\Result;
 use Aws\Sdk;
+use ClassManager\DynamoDb\Exceptions\DynamoDbQueryError;
+use Illuminate\Support\Facades\Log;
 
 class Client
 {
@@ -24,51 +27,95 @@ class Client
         $this->marshaler = new Marshaler();
     }
 
-    public function getItem(array $args): \Aws\Result
+    /**
+     * @param string $type Must be "putItem", "updateItem", "deleteItem", "getItem", or "query"
+     * @param array $args
+     * @return Result
+     */
+    protected function _query(string $type, array $args): Result
     {
-        $this->logQuery('get', $args);
-        return $this->instance->getItem($args);
+        $this->logQuery($type, $args);
+        try {
+            return $this->instance->{$type}($args);
+        } catch (\Throwable $t) {
+            Log::warning($t->getMessage());
+            throw new DynamoDbQueryError($t);
+        }
     }
 
-    public function putItem(array $args): \Aws\Result
+    /**
+     * @param array<string,string> $args
+     */
+    public function getItem(array $args): Result
     {
-        $this->logQuery('put', $args);
-        return $this->instance->putItem($args);
+        return $this->_query('getItem', $args);
     }
 
-    public function updateItem(array $args): \Aws\Result
+    /**
+     * @param array<string,string> $args
+     */
+    public function putItem(array $args): Result
     {
-        $this->logQuery('update', $args);
-        return $this->instance->updateItem($args);
+        return $this->_query('putItem', $args);
     }
 
-    public function deleteItem(array $args): \Aws\Result
+    /**
+     * @param array<string,string> $args
+     */
+    public function updateItem(array $args): Result
     {
-        $this->logQuery('delete', $args);
-        return $this->instance->deleteItem($args);
+        return $this->_query('updateItem', $args);
     }
 
-    public function query(array $args): \Aws\Result
+    /**
+     * @param array<string,string> $args
+     */
+    public function deleteItem(array $args): Result
     {
-        $this->logQuery('query', $args);
-        return $this->instance->query($args);
+        return $this->_query('deleteItem', $args);
     }
 
+    /**
+     * @param array<string,string> $args
+     */
+    public function query(array $args): Result
+    {
+        return $this->_query('query', $args);
+    }
+
+    /**
+     * Converts a php variable into a marshalled item for use in Dynamo, e.g:
+     * "string" -> {"S": "string"}
+     * @return array<string,string>
+     */
     public function marshalItem(mixed $item): array
     {
         return $this->marshaler->marshalItem($item);
     }
 
-    public function marshalValue(mixed $value): mixed
+    /**
+     * Converts a php variable into a marshalled value for use in Dynamo, e.g:
+     * "string" -> {"S": "string"}
+     * @return array<string,string>
+     */
+    public function marshalValue(mixed $value): array
     {
         return $this->marshaler->marshalValue($value);
     }
 
+    /**
+     * Takes a marshalled value like {"S": "this is a string"} and returns a php variable equivalent
+     * e.g. "this is a string"
+     * @param array<string,string> $value
+     */
     public function unmarshalValue(array $value): mixed
     {
         return $this->marshaler->unmarshalValue($value);
     }
 
+    /**
+     * @return array<string,string>
+     */
     protected function config(): array
     {
         return [
@@ -82,6 +129,9 @@ class Client
         ];
     }
 
+    /**
+     * @param array<string,string> $query
+     */
     protected function logQuery(string $type, array $query): void
     {
         if ($this->shouldLogQueries) {
