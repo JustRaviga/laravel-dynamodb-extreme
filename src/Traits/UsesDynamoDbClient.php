@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace ClassManager\DynamoDb\Traits;
 
 use ClassManager\DynamoDb\DynamoDb\Client;
-use ClassManager\DynamoDb\Exceptions\DynamoDbClientNotInContainerException;
+use ClassManager\DynamoDb\Exceptions\DynamoDbClientNotInContainer;
 use Illuminate\Container\EntryNotFoundException;
 
 trait UsesDynamoDbClient
 {
-    public function getClient(): Client
+    public static function getClient(): Client
     {
         try {
             return app()->get('dynamodb');
         } catch (EntryNotFoundException $e) {
-            throw new DynamoDbClientNotInContainerException();
+            throw new DynamoDbClientNotInContainer();
         }
     }
 }

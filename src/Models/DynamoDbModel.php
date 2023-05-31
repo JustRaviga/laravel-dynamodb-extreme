@@ -15,6 +15,7 @@ use ClassManager\DynamoDb\Traits\HasAttributes;
 use ClassManager\DynamoDb\Traits\HasInlineRelations;
 use ClassManager\DynamoDb\Traits\HasQueryBuilder;
 use ClassManager\DynamoDb\Traits\HasRelations;
+use ClassManager\DynamoDb\Traits\UsesDynamoDbClient;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 use Ramsey\Uuid\Uuid;
@@ -22,11 +23,11 @@ use Throwable;
 
 abstract class DynamoDbModel
 {
-    use HasAttributes, HasQueryBuilder, HasRelations, HasInlineRelations;
-
-    protected static string $partitionKey;
-    protected static string $sortKey;
-    protected static string $table;
+    use HasAttributes,
+        HasInlineRelations,
+        HasQueryBuilder,
+        HasRelations,
+        UsesDynamoDbClient;
 
     /**
      * @var bool Flag to show if we should use a Consistent Read when fetching data from DynamoDb
@@ -34,16 +35,39 @@ abstract class DynamoDbModel
     protected static bool $consistentRead;
 
     /**
+     * Optional list of secondary indexes (as keys) with values being a mapping in the same way as $fieldMappings
+     * @var array<string,array<string,string>>
+     */
+    protected static array $globalSecondaryIndexes = [];
+
+    /**
      * Mark this as a "child model" by setting its parent class here.
      * This allows access to the parent's partition key when building relations.
      */
     protected static string $parent;
 
+    protected static string $partitionKey;
+    protected static string $sortKey;
+    protected static string $table;
+
     /**
-     * Optional list of secondary indexes (as keys) with values being a mapping in the same way as $fieldMappings
-     * @var array<string,array<string,string>>
+     * @param array<string,string> $attributes
      */
-    protected static array $globalSecondaryIndexes = [];
+    public function __construct(array $attributes = [], bool $loading = false)
+    {
+        $this->applyDefaultModelConfiguration();
+
+        $attributes = $this->getMappedAttributes($attributes);
+
+        $this->applyDefaultValues($attributes);
+        $this->applyDefaultPartitionKey($attributes);
+        $this->applyDefaultSortKey($attributes);
+
+        if ($loading === true) {
+            $this->storeOriginalAttributes($attributes);
+        }
+        $this->fill($attributes);
+    }
 
     /**
      * Get an attribute on the model, but only if it's mentioned in $fillable
@@ -98,43 +122,66 @@ abstract class DynamoDbModel
         throw new PropertyNotFillable($property);
     }
 
+    protected function applyDefaultModelConfiguration(): void
+    {
+        static::$globalSecondaryIndexes = config('dynamodb.defaults.global_secondary_indexes');
+        static::$table = static::$table ?? config('dynamodb.defaults.table');
+        static::$partitionKey = static::$partitionKey ?? config('dynamodb.defaults.partition_key');
+        static::$sortKey = static::$sortKey ?? config('dynamodb.defaults.sort_key');
+    }
+
     /**
      * @param array<string,string> $attributes
      */
-    public function __construct(array $attributes = [], bool $loading = false)
+    protected function applyDefaultPartitionKey(array &$attributes): void
     {
-        $this->applyDefaultModelConfiguration();
-
-        $attributes = $this->getMappedAttributes($attributes);
-
-        $this->applyDefaultValues($attributes);
-        $this->applyDefaultPartitionKey($attributes);
-        $this->applyDefaultSortKey($attributes);
-
-        if ($loading === true) {
-            $this->storeOriginalAttributes($attributes);
+        $mappedPartitionKey = $this->getMappedPropertyName(self::partitionKey());
+        if (!isset($attributes[$mappedPartitionKey]) && method_exists($this, 'defaultPartitionKey')) {
+            $attributes[$mappedPartitionKey] = $this->defaultPartitionKey();
         }
-        $this->fill($attributes);
     }
 
     /**
-     * Convenience method to return a unique string that relates to this model exactly.
-     * Used to determine uniqueness across relations and keys for inline child models.
-     * Defaults to partitionKey.sortKey
+     * @param array<string,string> $attributes
      */
-    public function uniqueKey(): string
+    protected function applyDefaultSortKey(array &$attributes): void
     {
-        return $this->attributes[$this->getMappedPropertyName(static::partitionKey())]
-            . '.' . $this->attributes[$this->getMappedPropertyName(static::sortKey())];
+        $mappedSortKey = $this->getMappedPropertyName(self::sortKey());
+        if (!isset($attributes[$mappedSortKey]) && method_exists($this, 'defaultSortKey')) {
+            $attributes[$mappedSortKey] = $this->defaultSortKey();
+        }
     }
 
     /**
-     * Convenience method to get the name of the attribute used to generate a unique key.
-     * Used for Inline relations only
+     * @return array<string,string>
      */
-    public function uniqueKeyName(): string
+    protected function buildExpressionAttributeNames(Collection $attributes): array
     {
-        return '';
+        return $attributes->mapWithKeys(
+            fn ($_, $key) => ["#{$key}" => $key]
+        )->toArray();
+    }
+
+    /**
+     * @return array<string,array<string,string>>
+     */
+    protected function buildExpressionAttributeValues(Collection $attributes): array
+    {
+        return $attributes->mapWithKeys(
+            fn ($value, $key) => [":{$key}" => self::getClient()->marshalValue($value)]
+        )->toArray();
+    }
+
+    protected function buildUpdateExpression(Collection $attributes): string
+    {
+        return 'SET ' . $attributes->mapWithKeys(
+                fn ($_, $key) => [$key => "#{$key} = :{$key}"]
+            )->implode(', ');
+    }
+
+    public static function consistentRead(): bool
+    {
+        return self::$consistentRead ?? config('dynamodb.defaults.consistent_read');
     }
 
     /**
@@ -146,6 +193,102 @@ abstract class DynamoDbModel
         return tap(static::make($attributes), fn (self $model): static => $model->save() );
     }
 
+    public function defaultPartitionKey(): string
+    {
+        // todo if model has a parent, partition key should be the parent's class name
+        return DynamoDbHelpers::upperCaseClassName(static::class) . '#' . Uuid::uuid7()->toString();
+    }
+
+    public function defaultSortKey(): string
+    {
+        return DynamoDbHelpers::upperCaseClassName(static::class);
+    }
+
+    /**
+     * Deletes the loaded item from DynamoDb.
+     * Use with ::make to reduce database overhead of fetching first
+     */
+    public function delete(): static
+    {
+        $attributes = $this->unFill();
+        $this->validateAttributes($attributes);
+
+        $partitionKeyName = self::partitionKey();
+        $partitionKeyValue = $attributes[$partitionKeyName];
+        $sortKeyName = self::sortKey();
+        $sortKeyValue = $attributes[$sortKeyName];
+
+        $client = self::getClient();
+
+        $client->deleteItem([
+            'TableName' => $this->table(),
+            'ConsistentRead' => $this->consistentRead(),
+            'Key' => $client->marshalItem([
+                $partitionKeyName => $partitionKeyValue,
+                $sortKeyName => $sortKeyValue,
+            ]),
+        ]);
+
+        return $this;
+    }
+
+    public static function find(string $partitionKey, string $sortKey): ?static
+    {
+        $client = self::getClient();
+
+        $response = $client->getItem([
+            'TableName' => static::table(),
+            'ConsistentRead' => static::consistentRead(),
+            'Key' => $client->marshalItem([
+                static::partitionKey() => $partitionKey,
+                static::sortKey() => $sortKey,
+            ]),
+        ]);
+
+        if (!isset($response['Item'])) {
+            return null;
+        }
+
+        return new static(
+            attributes: collect($response['Item'])
+                ->map(fn ($attribute) => $client->unmarshalValue($attribute))
+                ->toArray(),
+            loading: true,
+        );
+    }
+
+    public static function findOrFail(string $partitionKey, string $sortKey): static
+    {
+        $model = self::find($partitionKey, $sortKey);
+
+        if ($model === null) {
+            throw (new ModelNotFoundException())->setModel(
+                static::class,
+                [$partitionKey, $sortKey]
+            );
+        }
+
+        return $model;
+    }
+
+    public function getMappedPartitionKeyValue(): string
+    {
+        return $this->attributes[$this->getMappedPropertyName(static::partitionKey())];
+    }
+
+    public function getMappedSortKeyValue(): string
+    {
+        return $this->attributes[$this->getMappedPropertyName(static::sortKey())];
+    }
+
+    /**
+     * @return array<string,array<string,string>>
+     */
+    public static function globalSecondaryIndexes(): array
+    {
+        return static::$globalSecondaryIndexes;
+    }
+
     /**
      * Returns a populated instance of the model without persisting to DynamoDb.
      * @param array<string,string> $attributes
@@ -153,6 +296,33 @@ abstract class DynamoDbModel
     public static function make(array $attributes = []): static
     {
         return new static($attributes);
+    }
+
+    public static function parent(): string
+    {
+        return self::$parent;
+    }
+
+    public static function partitionKey(?string $index = null): string
+    {
+        return self::$globalSecondaryIndexes[$index][self::$partitionKey] ?? self::$partitionKey;
+    }
+
+    /**
+     * Reloads the model's data from Dynamo, including re-populating inline relationships
+     */
+    public function refresh(): static
+    {
+        // re-fetch values from dynamodb
+        $model = static::find(
+            $this->getMappedPartitionKeyValue(),
+            $this->getMappedSortKeyValue(),
+        );
+
+        $this->fill($model->attributes());
+        $this->inlineRelations = $model->inlineRelations;
+
+        return $this;
     }
 
     /**
@@ -178,52 +348,69 @@ abstract class DynamoDbModel
         return $this;
     }
 
-    public function saveInlineRelation(): static
+    public static function sortKey(?string $index = null): string
     {
-        $fieldName = $this->fieldName();
+        return self::$globalSecondaryIndexes[$index][self::$sortKey] ?? self::$sortKey;
+    }
 
-        if ($fieldName === '') {
-            throw new InvalidInlineModel($this);
+    public static function table(): string
+    {
+        if (isset(self::$parent)) {
+            $parent = self::$parent;
+            return $parent::table();
         }
 
-        $attributes = collect($this->unFill());
+        return self::$table;
+    }
 
-        // Extract the partition and sort keys
-        $partitionKeyName = $this->partitionKey();
-        $partitionKeyValue = $attributes[$partitionKeyName];
-        $sortKeyName = $this->sortKey();
-        $sortKeyValue = $attributes[$sortKeyName];
+    public function toArray(): array
+    {
+        return $this->attributes();
+    }
 
-        // Remove the partition and sort keys from the data we're about to save
-        $attributes = $attributes->mapWithKeys(
-            fn ($value, $key) => $key === $partitionKeyName || $key === $sortKeyName || $key === $this->uniqueKeyName()
-                ? [$key => null]
-                : [$key => $value]
-        )->filter(fn ($attr) => $attr !== null);
+    /**
+     * Builds a list of fields ready for persisting, applying reverse mapping from the fieldMappings array
+     * @return array<string,string>
+     */
+    protected function unFill(): array
+    {
+        // Apply reversed field mappings to attributes on this model
+        $attributes = collect($this->attributes)
+            ->mapWithKeys(fn ($value, $attribute) => [$this->getReverseMappedPropertyName($attribute) => $value])
+            ->toArray();
 
-        $client = self::getClient();
+        // Apply any loaded inline-relations
+        foreach($this->inlineRelations() as $relation)
+        {
+            $models = $relation
+                ->get()
+                ->mapWithKeys(fn ($model) => [ $model->uniqueKey() => $model->attributes() ])
+                ->toArray();
 
-        $attributes = collect(['value' => $attributes]);
+            $attributes[$relation->relatedProperty()] = count($models) === 0 ? new \stdClass() : $models;
+        }
 
-        $names = [
-            $this->fieldName() => $this->fieldName(),
-            $this->uniqueKeyName() => $this->uniqueKey(),
-        ];
+        return $attributes;
+    }
 
-        $query = [
-            'TableName' => $this->table(),
-            'ConsistentRead' => $this->consistentRead(),
-            'Key' => $client->marshalItem([
-                $partitionKeyName => $partitionKeyValue,
-                $sortKeyName => $sortKeyValue,
-            ]),
-            'UpdateExpression' => $this->buildInlineSetExpression($attributes),
-            'ExpressionAttributeNames' => $this->buildInlineExpressionAttributeNames(collect($names)),
-            'ExpressionAttributeValues' => $this->buildExpressionAttributeValues($attributes),
-        ];
-        $client->updateItem($query);
+    /**
+     * Convenience method to return a unique string that relates to this model exactly.
+     * Used to determine uniqueness across relations and keys for inline child models.
+     * Defaults to partitionKey.sortKey
+     */
+    public function uniqueKey(): string
+    {
+        return $this->attributes[$this->getMappedPropertyName(static::partitionKey())]
+            . '.' . $this->attributes[$this->getMappedPropertyName(static::sortKey())];
+    }
 
-        return $this;
+    /**
+     * Convenience method to get the name of the attribute used to generate a unique key.
+     * Used for Inline relations only
+     */
+    public function uniqueKeyName(): string
+    {
+        return '';
     }
 
     /**
@@ -269,322 +456,5 @@ abstract class DynamoDbModel
         $this->dirty = [];
 
         return $this;
-    }
-
-    public function updateInlineRelation(): static
-    {
-        $fieldName = $this->fieldName();
-
-        if ($fieldName === '') {
-            throw new InvalidInlineModel($this);
-        }
-
-        $attributes = collect($this->unFill());
-
-        // Extract the partition and sort keys
-        $partitionKeyName = $this->partitionKey();
-        $partitionKeyValue = $attributes[$partitionKeyName];
-        $sortKeyName = $this->sortKey();
-        $sortKeyValue = $attributes[$sortKeyName];
-
-        // Remove the partition, sort keys, and the unique key from the data we're about to save
-        $attributes = $attributes->mapWithKeys(
-            fn ($value, $key) => $key === $partitionKeyName || $key === $sortKeyName || $key === $this->uniqueKeyName()
-                ? [$key => null]
-                : [$key => $value]
-        )->filter(fn ($attr) => $attr !== null);
-
-        $client = self::getClient();
-
-        $names = [
-            $this->fieldName() => $this->fieldName(),
-            $this->uniqueKeyName() => $this->uniqueKey(),
-            ...$attributes->mapWithKeys(fn ($_, $key) => [$key => $key]),
-        ];
-
-        $updateExpression = $this->buildInlineUpdateExpression($attributes);
-        $attributeNames = $this->buildInlineExpressionAttributeNames(collect($names));
-        $attributeValues = $this->buildExpressionAttributeValues($attributes);
-
-        $query = [
-            'TableName' => $this->table(),
-            'ConsistentRead' => $this->consistentRead(),
-            'Key' => $client->marshalItem([
-                $partitionKeyName => $partitionKeyValue,
-                $sortKeyName => $sortKeyValue,
-            ]),
-            'UpdateExpression' => $updateExpression,
-            'ExpressionAttributeNames' => $attributeNames,
-            'ExpressionAttributeValues' => $attributeValues,
-        ];
-        $client->updateItem($query);
-
-        return $this;
-    }
-
-    /**
-     * Deletes the loaded item from DynamoDb.
-     * Use with ::make to reduce database overhead of fetching first
-     */
-    public function delete(): static
-    {
-        $attributes = $this->unFill();
-        $this->validateAttributes($attributes);
-
-        $partitionKeyName = self::partitionKey();
-        $partitionKeyValue = $attributes[$partitionKeyName];
-        $sortKeyName = self::sortKey();
-        $sortKeyValue = $attributes[$sortKeyName];
-
-        $client = self::getClient();
-
-        $client->deleteItem([
-            'TableName' => $this->table(),
-            'ConsistentRead' => $this->consistentRead(),
-            'Key' => $client->marshalItem([
-                $partitionKeyName => $partitionKeyValue,
-                $sortKeyName => $sortKeyValue,
-            ]),
-        ]);
-
-        return $this;
-    }
-
-    public function refresh(): static
-    {
-        // re-fetch values from dynamodb
-        $model = static::find(
-            $this->getMappedPartitionKeyValue(),
-            $this->getMappedSortKeyValue(),
-        );
-
-        $this->fill($model->attributes());
-        $this->inlineRelations = $model->inlineRelations;
-
-        return $this;
-    }
-
-    /**
-     * Builds a list of fields ready for persisting, applying reverse mapping from the fieldMappings array
-     * @return array<string,string>
-     */
-    protected function unFill(): array
-    {
-        // Apply reversed field mappings to attributes on this model
-        $attributes = collect($this->attributes)
-            ->mapWithKeys(fn ($value, $attribute) => [$this->getReverseMappedPropertyName($attribute) => $value])
-            ->toArray();
-
-        // Apply any loaded inline-relations
-        foreach($this->inlineRelations() as $relation)
-        {
-            $models = $relation
-                ->get()
-                ->mapWithKeys(fn ($model) => [ $model->uniqueKey() => $model->attributes() ])
-                ->toArray();
-
-            $attributes[$relation->relatedProperty()] = count($models) === 0 ? new \stdClass() : $models;
-        }
-
-        return $attributes;
-    }
-
-    public static function table(): string
-    {
-        if (isset(self::$parent)) {
-            $parent = self::$parent;
-            return $parent::table();
-        }
-
-        return self::$table;
-    }
-
-    /**
-     * @return array<string,array<string,string>>
-     */
-    public static function globalSecondaryIndexes(): array
-    {
-        return static::$globalSecondaryIndexes;
-    }
-
-    public static function consistentRead(): bool
-    {
-        return self::$consistentRead ?? config('dynamodb.defaults.consistent_read');
-    }
-
-    public static function find(string $partitionKey, string $sortKey): ?static
-    {
-        $client = self::getClient();
-
-        $response = $client->getItem([
-            'TableName' => static::table(),
-            'ConsistentRead' => static::consistentRead(),
-            'Key' => $client->marshalItem([
-                static::partitionKey() => $partitionKey,
-                static::sortKey() => $sortKey,
-            ]),
-        ]);
-
-        if (!isset($response['Item'])) {
-            return null;
-        }
-
-        return new static(
-            attributes: collect($response['Item'])
-                ->map(fn ($attribute) => $client->unmarshalValue($attribute))
-                ->toArray(),
-            loading: true,
-        );
-    }
-
-    public static function findOrFail(string $partitionKey, string $sortKey): static
-    {
-        $model = self::find($partitionKey, $sortKey);
-
-        if ($model === null) {
-            throw (new ModelNotFoundException())->setModel(
-                static::class,
-                [$partitionKey, $sortKey]
-            );
-        }
-
-        return $model;
-    }
-
-    protected function buildUpdateExpression(Collection $attributes): string
-    {
-        return 'SET ' . $attributes->mapWithKeys(
-            fn ($_, $key) => [$key => "#{$key} = :{$key}"]
-        )->implode(', ');
-    }
-
-    /**
-     * @return array<string,array<string,string>>
-     */
-    protected function buildExpressionAttributeValues(Collection $attributes): array
-    {
-        return $attributes->mapWithKeys(
-            fn ($value, $key) => [":{$key}" => self::getClient()->marshalValue($value)]
-        )->toArray();
-    }
-
-    /**
-     * @return array<string,string>
-     */
-    protected function buildExpressionAttributeNames(Collection $attributes): array
-    {
-        return $attributes->mapWithKeys(
-            fn ($_, $key) => ["#{$key}" => $key]
-        )->toArray();
-    }
-
-    protected function buildInlineSetExpression(): string
-    {
-        return "SET #{$this->fieldName()}.#{$this->uniqueKeyName()} = :value";
-    }
-
-    protected function buildInlineUpdateExpression(Collection $attributes): string
-    {
-        return "SET " . $attributes->mapWithKeys(function ($_, $key) {
-                return [$key => "#{$this->fieldName()}.#{$this->uniqueKeyName()}.#{$key} = :{$key}"];
-            })->implode(', ');
-    }
-
-    /**
-     * @return array<string,string>
-     */
-    protected function buildInlineExpressionAttributeNames(Collection $attributes): array
-    {
-        return $attributes->mapWithKeys(
-            fn ($value, $key) => ["#{$key}" => $value]
-        )->toArray();
-    }
-
-    protected static function getClient(): Client
-    {
-        try {
-            return app()->get('dynamodb');
-        } catch (Throwable) {
-            throw new DynamoDbClientNotInContainer();
-        }
-    }
-
-    protected function applyDefaultModelConfiguration(): void
-    {
-        static::$globalSecondaryIndexes = config('dynamodb.defaults.global_secondary_indexes');
-        static::$table = static::$table ?? config('dynamodb.defaults.table');
-        static::$partitionKey = static::$partitionKey ?? config('dynamodb.defaults.partition_key');
-        static::$sortKey = static::$sortKey ?? config('dynamodb.defaults.sort_key');
-    }
-
-    public static function partitionKey(?string $index = null): string
-    {
-        return self::$globalSecondaryIndexes[$index][self::$partitionKey] ?? self::$partitionKey;
-    }
-
-    public function defaultPartitionKey(): string
-    {
-        // todo if model has a parent, partition key should be the parent's class name
-        return DynamoDbHelpers::upperCaseClassName(static::class) . '#' . Uuid::uuid7()->toString();
-    }
-
-    public function getMappedPartitionKeyValue(): string
-    {
-        return $this->attributes[$this->getMappedPropertyName(static::partitionKey())];
-    }
-
-    /**
-     * @param array<string,string> $attributes
-     */
-    protected function applyDefaultPartitionKey(array &$attributes): void
-    {
-        $mappedPartitionKey = $this->getMappedPropertyName(self::partitionKey());
-        if (!isset($attributes[$mappedPartitionKey]) && method_exists($this, 'defaultPartitionKey')) {
-            $attributes[$mappedPartitionKey] = $this->defaultPartitionKey();
-        }
-    }
-
-    public static function sortKey(?string $index = null): string
-    {
-        return self::$globalSecondaryIndexes[$index][self::$sortKey] ?? self::$sortKey;
-    }
-
-    public function defaultSortKey(): string
-    {
-        return DynamoDbHelpers::upperCaseClassName(static::class);
-    }
-
-    public function getMappedSortKeyValue(): string
-    {
-        return $this->attributes[$this->getMappedPropertyName(static::sortKey())];
-    }
-
-    /**
-     * @param array<string,string> $attributes
-     */
-    protected function applyDefaultSortKey(array &$attributes): void
-    {
-        $mappedSortKey = $this->getMappedPropertyName(self::sortKey());
-        if (!isset($attributes[$mappedSortKey]) && method_exists($this, 'defaultSortKey')) {
-            $attributes[$mappedSortKey] = $this->defaultSortKey();
-        }
-    }
-
-    public static function parent(): string
-    {
-        return self::$parent;
-    }
-
-    public function toArray(): array
-    {
-        return $this->attributes();
-    }
-
-    /**
-     * For inline relations, this specifies the attribute name in Dynamo where the data for this object can be found.
-     */
-    public function fieldName(): string
-    {
-        return '';
     }
 }

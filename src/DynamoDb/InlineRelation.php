@@ -77,7 +77,7 @@ class InlineRelation extends BaseRelation
         });
     }
 
-    public function add(array|DynamoDbModel $model): self
+    public function add(array|DynamoDbModel $model): static
     {
         if (!$this->haveFetchedRelation) {
             // unpack field if required
