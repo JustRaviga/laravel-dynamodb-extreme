@@ -18,35 +18,30 @@ class DynamoDbQueryBuilder
 {
     use UsesDynamoDbClient;
 
-    protected ?string $index = null;
-
     /**
      * Populated using ->where('field', 'value')
      * @var array<string, string> $filters
      */
     protected array $filters = [];
 
-    protected bool $sortOrderDescending = false;
+    protected ?string $index = null;
 
     protected ?int $limit = null;
+
+    protected ?DynamoDbModel $model = null;
+
+    protected bool $raw = false;
 
     /**
      * @var array<Relation> list of relations to load when the query is processed
      */
     protected array $relationList = [];
 
-    protected bool $raw = false;
+    protected bool $sortOrderDescending = false;
 
     protected ?string $table = null;
 
-    protected ?DynamoDbModel $model = null;
-
-    protected Client $client;
-
-    public function __construct()
-    {
-        $this->client = $this->getClient();
-    }
+    protected bool $withData = false;
 
     protected function _query(): Collection
     {
@@ -61,13 +56,14 @@ class DynamoDbQueryBuilder
         $queryParams = $this->buildQueryParams($parsedFilters);
 
         // DynamoDb request
-        $response = $this->client->query($queryParams);
+        $response = self::client()->query($queryParams);
 
         // If requesting raw output, just return the list of item data
+        // NB: This can't be used with "withData" as we need a model to map indexes to partition keys
         if ($this->model === null || $this->raw === true) {
             return collect($response['Items'])->map(
                 fn (array $item) => collect($item)->map(
-                    fn ($property) => $this->client->unmarshalValue($property)
+                    fn($property) => self::client()->unmarshalValue($property)
                 )->toArray()
             );
         }
@@ -113,7 +109,16 @@ class DynamoDbQueryBuilder
      */
     protected function buildModelFromItem(array $item): DynamoDbModel
     {
-        foreach($this->relationList as $relation) {
+        if ($this->withData) {
+            // make additional request to fetch more data from dynamo
+            $class = $this->model;
+            return $class::find(
+                self::client()->unmarshalValue($item[$class::partitionKey()]),
+                self::client()->unmarshalValue($item[$class::sortKey()])
+            );
+        }
+
+        foreach ($this->relationList as $relation) {
             // Check relations that we've been asked to load to see if they match with the item being created
 
             assert($relation instanceof Relation);
@@ -128,18 +133,18 @@ class DynamoDbQueryBuilder
             // We use array_slice to account for "between" that has 2 values
             $values = array_slice($relation->relation(), 2);
 
-            $modelSortKey = $this->client->unmarshalValue($item[$model->sortKey()]);
+            $modelSortKey = self::client()->unmarshalValue($item[$model->sortKey()]);
 
             // We matched the relation!
             if ($comparer->compare([$modelSortKey, ...$values])) {
                 return $model->fill(collect($item)->map(
-                    fn ($property) => $this->client->unmarshalValue($property)
+                    fn ($property) => self::client()->unmarshalValue($property)
                 )->toArray());
             }
         }
 
         return $this->model::make(collect($item)->map(
-            fn ($property) => $this->client->unmarshalValue($property)
+            fn ($property) => self::client()->unmarshalValue($property)
         )->toArray());
     }
 
@@ -160,7 +165,7 @@ class DynamoDbQueryBuilder
     {
         return $parsedFilters
             ->mapWithKeys(fn (Comparison $filter) => $filter->expressionAttributeValue())
-            ->map(fn (string $value) => $this->client->marshalValue($value))
+            ->map(fn (string $value) => self::client()->marshalValue($value))
             ->toArray();
     }
 
@@ -351,6 +356,12 @@ class DynamoDbQueryBuilder
     public function withIndex(string $index): self
     {
         $this->index = $index;
+        return $this;
+    }
+
+    public function withData(): self
+    {
+        $this->withData = true;
         return $this;
     }
 

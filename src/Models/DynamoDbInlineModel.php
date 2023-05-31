@@ -61,7 +61,7 @@ class DynamoDbInlineModel extends DynamoDbModel
                 : [$key => $value]
         )->filter(fn ($attr) => $attr !== null);
 
-        $client = self::getClient();
+        $client = self::client();
 
         $attributes = collect(['value' => $attributes]);
 
@@ -109,7 +109,7 @@ class DynamoDbInlineModel extends DynamoDbModel
                 : [$key => $value]
         )->filter(fn ($attr) => $attr !== null);
 
-        $client = self::getClient();
+        $client = self::client();
 
         $names = [
             $this->fieldName() => $this->fieldName(),

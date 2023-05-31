@@ -10,7 +10,7 @@ use Illuminate\Container\EntryNotFoundException;
 
 trait UsesDynamoDbClient
 {
-    public static function getClient(): Client
+    public static function client(): Client
     {
         try {
             return app()->get('dynamodb');

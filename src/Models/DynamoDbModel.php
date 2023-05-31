@@ -44,7 +44,7 @@ abstract class DynamoDbModel
      * Mark this as a "child model" by setting its parent class here.
      * This allows access to the parent's partition key when building relations.
      */
-    protected static string $parent;
+    protected static ?string $parent = null;
 
     protected static string $partitionKey;
     protected static string $sortKey;
@@ -168,7 +168,7 @@ abstract class DynamoDbModel
     protected function buildExpressionAttributeValues(Collection $attributes): array
     {
         return $attributes->mapWithKeys(
-            fn ($value, $key) => [":{$key}" => self::getClient()->marshalValue($value)]
+            fn ($value, $key) => [":{$key}" => self::client()->marshalValue($value)]
         )->toArray();
     }
 
@@ -195,7 +195,10 @@ abstract class DynamoDbModel
 
     public function defaultPartitionKey(): string
     {
-        // todo if model has a parent, partition key should be the parent's class name
+        if (self::$parent !== null) {
+            return DynamoDbHelpers::upperCaseClassName(self::$parent::class) . '#' . Uuid::uuid7()->toString();
+        }
+
         return DynamoDbHelpers::upperCaseClassName(static::class) . '#' . Uuid::uuid7()->toString();
     }
 
@@ -218,7 +221,7 @@ abstract class DynamoDbModel
         $sortKeyName = self::sortKey();
         $sortKeyValue = $attributes[$sortKeyName];
 
-        $client = self::getClient();
+        $client = self::client();
 
         $client->deleteItem([
             'TableName' => $this->table(),
@@ -234,7 +237,7 @@ abstract class DynamoDbModel
 
     public static function find(string $partitionKey, string $sortKey): ?static
     {
-        $client = self::getClient();
+        $client = self::client();
 
         $response = $client->getItem([
             'TableName' => static::table(),
@@ -333,7 +336,7 @@ abstract class DynamoDbModel
         $attributes = $this->unFill();
         $this->validateAttributes($attributes);
 
-        $client = self::getClient();
+        $client = self::client();
 
         $client->putItem([
             'TableName' => $this->table(),
@@ -437,7 +440,7 @@ abstract class DynamoDbModel
                 : [$key => $value]
         )->filter(fn($val) => $val !== null);
 
-        $client = self::getClient();
+        $client = self::client();
 
         $client->updateItem([
             'TableName' => $this->table(),
