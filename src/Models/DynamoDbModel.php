@@ -5,21 +5,17 @@ declare(strict_types=1);
 namespace ClassManager\DynamoDb\Models;
 
 use ClassManager\DynamoDb\DynamoDb\BaseRelation;
-use ClassManager\DynamoDb\DynamoDb\Client;
 use ClassManager\DynamoDb\DynamoDb\InlineRelation;
 use ClassManager\DynamoDb\DynamoDbHelpers;
-use ClassManager\DynamoDb\Exceptions\DynamoDbClientNotInContainer;
 use ClassManager\DynamoDb\Exceptions\InvalidInlineModel;
 use ClassManager\DynamoDb\Exceptions\PropertyNotFillable;
 use ClassManager\DynamoDb\Traits\HasAttributes;
 use ClassManager\DynamoDb\Traits\HasInlineRelations;
 use ClassManager\DynamoDb\Traits\HasQueryBuilder;
 use ClassManager\DynamoDb\Traits\HasRelations;
-use ClassManager\DynamoDb\Traits\UsesDynamoDbClient;
+use ClassManager\DynamoDb\Traits\UsesDynamoDbAdapter;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Support\Collection;
 use Ramsey\Uuid\Uuid;
-use Throwable;
 
 abstract class DynamoDbModel
 {
@@ -27,7 +23,7 @@ abstract class DynamoDbModel
         HasInlineRelations,
         HasQueryBuilder,
         HasRelations,
-        UsesDynamoDbClient;
+        UsesDynamoDbAdapter;
 
     /**
      * @var bool Flag to show if we should use a Consistent Read when fetching data from DynamoDb
@@ -152,33 +148,6 @@ abstract class DynamoDbModel
         }
     }
 
-    /**
-     * @return array<string,string>
-     */
-    protected function buildExpressionAttributeNames(Collection $attributes): array
-    {
-        return $attributes->mapWithKeys(
-            fn ($_, $key) => ["#{$key}" => $key]
-        )->toArray();
-    }
-
-    /**
-     * @return array<string,array<string,string>>
-     */
-    protected function buildExpressionAttributeValues(Collection $attributes): array
-    {
-        return $attributes->mapWithKeys(
-            fn ($value, $key) => [":{$key}" => self::client()->marshalValue($value)]
-        )->toArray();
-    }
-
-    protected function buildUpdateExpression(Collection $attributes): string
-    {
-        return 'SET ' . $attributes->mapWithKeys(
-                fn ($_, $key) => [$key => "#{$key} = :{$key}"]
-            )->implode(', ');
-    }
-
     public static function consistentRead(): bool
     {
         return self::$consistentRead ?? config('dynamodb.defaults.consistent_read');
@@ -216,46 +185,35 @@ abstract class DynamoDbModel
         $attributes = $this->unFill();
         $this->validateAttributes($attributes);
 
-        $partitionKeyName = self::partitionKey();
-        $partitionKeyValue = $attributes[$partitionKeyName];
-        $sortKeyName = self::sortKey();
-        $sortKeyValue = $attributes[$sortKeyName];
-
-        $client = self::client();
-
-        $client->deleteItem([
-            'TableName' => $this->table(),
-            'ConsistentRead' => $this->consistentRead(),
-            'Key' => $client->marshalItem([
-                $partitionKeyName => $partitionKeyValue,
-                $sortKeyName => $sortKeyValue,
-            ]),
-        ]);
+        $adapter = self::adapter();
+        $adapter->delete(
+            $this,
+            partitionKey: $attributes[self::partitionKey()],
+            sortKey: $attributes[self::sortKey()]
+        );
 
         return $this;
     }
 
+    /**
+     * For inline relations, this specifies the attribute name in Dynamo where the data for this object can be found.
+     */
+    public function fieldName(): string
+    {
+        return '';
+    }
+
     public static function find(string $partitionKey, string $sortKey): ?static
     {
-        $client = self::client();
+        $attributes = self::adapter()->get(self::class, $partitionKey, $sortKey);
 
-        $response = $client->getItem([
-            'TableName' => static::table(),
-            'ConsistentRead' => static::consistentRead(),
-            'Key' => $client->marshalItem([
-                static::partitionKey() => $partitionKey,
-                static::sortKey() => $sortKey,
-            ]),
-        ]);
-
-        if (!isset($response['Item'])) {
-            return null;
+        // Nothing found for the given partition/sort key combination
+        if ($attributes === null) {
+             return null;
         }
 
         return new static(
-            attributes: collect($response['Item'])
-                ->map(fn ($attribute) => $client->unmarshalValue($attribute))
-                ->toArray(),
+            $attributes,
             loading: true,
         );
     }
@@ -336,17 +294,41 @@ abstract class DynamoDbModel
         $attributes = $this->unFill();
         $this->validateAttributes($attributes);
 
-        $client = self::client();
-
-        $client->putItem([
-            'TableName' => $this->table(),
-            'ConsistentRead' => $this->consistentRead(),
-            'Item' => $client->marshalItem($attributes),
-        ]);
+        self::adapter()->save($this, $attributes);
 
         // Now we have persisted our data, we no longer have any dirty data
         $this->original = $this->attributes;
         $this->dirty = [];
+
+        return $this;
+    }
+
+    public function saveInlineRelation(): static
+    {
+        $fieldName = $this->fieldName();
+
+        if ($fieldName === '') {
+            throw new InvalidInlineModel($this);
+        }
+
+        $attributes = $this->unFill();
+
+        $partitionKey = $attributes[$this::partitionKey()];
+        $sortKey = $attributes[$this::sortKey()];
+
+        // Remove the partition and sort keys from the data we're about to save
+        $attributesWithoutKeys = DynamoDbHelpers::listWithoutKeys($attributes, [
+            $this::partitionKey(),
+            $this::sortKey(),
+            $this->uniqueKeyName(),
+        ]);
+
+        self::adapter()->saveInlineRelation(
+            $this,
+            $partitionKey,
+            $sortKey,
+            $attributes
+        );
 
         return $this;
     }
@@ -440,23 +422,41 @@ abstract class DynamoDbModel
                 : [$key => $value]
         )->filter(fn($val) => $val !== null);
 
-        $client = self::client();
-
-        $client->updateItem([
-            'TableName' => $this->table(),
-            'ConsistentRead' => $this->consistentRead(),
-            'Key' => $client->marshalItem([
-                $partitionKeyName => $partitionKeyValue,
-                $sortKeyName => $sortKeyValue,
-            ]),
-            'UpdateExpression' => $this->buildUpdateExpression($attributes),
-            'ExpressionAttributeNames' => $this->buildExpressionAttributeNames($attributes),
-            'ExpressionAttributeValues' => $this->buildExpressionAttributeValues($attributes),
-        ]);
+        self::adapter()->update($this, $partitionKeyValue, $sortKeyValue, $attributes->toArray());
 
         // Now we have persisted our data, we no longer have any dirty data
         $this->original = $this->attributes;
         $this->dirty = [];
+
+        return $this;
+    }
+
+    public function updateInlineRelation(): static
+    {
+        $fieldName = $this->fieldName();
+
+        if ($fieldName === '') {
+            throw new InvalidInlineModel($this);
+        }
+
+        $attributes = $this->unFill();
+
+        $partitionKey = $attributes[$this::partitionKey()];
+        $sortKey = $attributes[$this::sortKey()];
+
+        // Remove the partition, sort keys, and the unique key from the data we're about to save
+        $attributes = DynamoDbHelpers::listWithoutKeys($attributes, [
+            $this::partitionKey(),
+            $this::sortKey(),
+            $this->uniqueKeyName()
+        ]);
+
+        self::adapter()->updateInlineRelation(
+            $this,
+            $partitionKey,
+            $sortKey,
+            $attributes
+        );
 
         return $this;
     }

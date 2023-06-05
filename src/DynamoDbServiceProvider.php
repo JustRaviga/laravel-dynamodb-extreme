@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ClassManager\DynamoDb;
 
 use ClassManager\DynamoDb\DynamoDb\Client;
+use ClassManager\DynamoDb\DynamoDb\DynamoDbAdapter;
 use Illuminate\Support\ServiceProvider;
 
 class DynamoDbServiceProvider extends ServiceProvider
@@ -23,5 +24,6 @@ class DynamoDbServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(dirname(__DIR__) . '/config/dynamodb.php', 'dynamodb');
 
         $this->app->singleton('dynamodb', fn() => new Client());
+        $this->app->singleton(DynamoDbAdapter::class, fn() => new DynamoDbAdapter());
     }
 }
