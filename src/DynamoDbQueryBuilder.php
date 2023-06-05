@@ -4,17 +4,12 @@ declare(strict_types=1);
 
 namespace ClassManager\DynamoDb;
 
-use ClassManager\DynamoDb\DynamoDb\Client;
-use ClassManager\DynamoDb\DynamoDb\ComparisonBuilder;
-use ClassManager\DynamoDb\DynamoDb\Comparisons\Comparison;
 use ClassManager\DynamoDb\DynamoDb\DynamoDbQuery;
 use ClassManager\DynamoDb\DynamoDb\DynamoDbResult;
 use ClassManager\DynamoDb\DynamoDb\Relation;
 use ClassManager\DynamoDb\Exceptions\InvalidRelation;
-use ClassManager\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
 use ClassManager\DynamoDb\Models\DynamoDbModel;
 use ClassManager\DynamoDb\Traits\UsesDynamoDbClient;
-use Illuminate\Support\Collection;
 
 class DynamoDbQueryBuilder
 {
