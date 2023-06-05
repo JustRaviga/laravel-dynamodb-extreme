@@ -8,6 +8,7 @@ use Aws\DynamoDb\DynamoDbClient;
 use Aws\DynamoDb\Marshaler;
 use Aws\Result;
 use Aws\Sdk;
+use ClassManager\DynamoDb\Enums\DynamoDbQueryType;
 use ClassManager\DynamoDb\Exceptions\DynamoDbQueryError;
 use Illuminate\Support\Facades\Log;
 
@@ -28,15 +29,15 @@ class Client
     }
 
     /**
-     * @param string $type Must be "putItem", "updateItem", "deleteItem", "getItem", or "query"
+     * @param DynamoDbQueryType $type
      * @param array $args
      * @return Result
      */
-    protected function _query(string $type, array $args): Result
+    protected function _query(DynamoDbQueryType $type, array $args): Result
     {
-        $this->logQuery($type, $args);
+        $this->logQuery($type->value, $args);
         try {
-            return $this->instance->{$type}($args);
+            return $this->instance->{$type->value}($args);
         } catch (\Throwable $t) {
             Log::warning($t->getMessage());
             throw new DynamoDbQueryError($t);
@@ -48,7 +49,7 @@ class Client
      */
     public function getItem(array $args): Result
     {
-        return $this->_query('getItem', $args);
+        return $this->_query(DynamoDbQueryType::GET, $args);
     }
 
     /**
@@ -56,7 +57,7 @@ class Client
      */
     public function putItem(array $args): Result
     {
-        return $this->_query('putItem', $args);
+        return $this->_query(DynamoDbQueryType::PUT, $args);
     }
 
     /**
@@ -64,7 +65,7 @@ class Client
      */
     public function updateItem(array $args): Result
     {
-        return $this->_query('updateItem', $args);
+        return $this->_query(DynamoDbQueryType::UPDATE, $args);
     }
 
     /**
@@ -72,7 +73,7 @@ class Client
      */
     public function deleteItem(array $args): Result
     {
-        return $this->_query('deleteItem', $args);
+        return $this->_query(DynamoDbQueryType::DELETE, $args);
     }
 
     /**
@@ -80,7 +81,7 @@ class Client
      */
     public function query(array $args): Result
     {
-        return $this->_query('query', $args);
+        return $this->_query(DynamoDbQueryType::QUERY, $args);
     }
 
     /**
