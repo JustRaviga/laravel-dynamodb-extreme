@@ -8,7 +8,7 @@ class GreaterThanComparison extends Comparison
 {
     public function __toString(): string
     {
-        return "{$this->fieldName} > {$this->fieldValue}";
+        return "#{$this->fieldName} > :{$this->fieldName}";
     }
 
     /**

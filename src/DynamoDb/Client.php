@@ -35,7 +35,7 @@ class Client
      */
     protected function _query(DynamoDbQueryType $type, array $args): Result
     {
-        $this->logQuery($type->value, $args);
+        $this->logQuery($type, $args);
         try {
             return $this->instance->{$type->value}($args);
         } catch (\Throwable $t) {
@@ -133,10 +133,10 @@ class Client
     /**
      * @param array<string,string> $query
      */
-    protected function logQuery(string $type, array $query): void
+    protected function logQuery(DynamoDbQueryType $type, array $query): void
     {
         if ($this->shouldLogQueries) {
-            info(strtoupper($type) . ' -> ' . json_encode($query));
+            info(strtoupper($type->value) . ' -> ' . json_encode($query));
         }
     }
 }
