@@ -7,13 +7,16 @@ use Illuminate\Support\Collection;
 readonly class DynamoDbResult
 {
     public Collection $results;
-    public readonly int $count;
 
     public function __construct(
         array $results,
-        public readonly bool $raw = false
+        public bool $raw = false,
+        public ?LastEvaluatedKey $lastEvaluatedKey = null,
     ) {
         $this->results = collect($results);
-        $this->count = count($results);
+    }
+
+    public function hasMoreResults(): bool {
+        return $this->lastEvaluatedKey !== null;
     }
 }

@@ -12,18 +12,19 @@ class DynamoDbQuery
 
     public function query(array $params): DynamoDbResult
     {
-        // Attempt to guess which index to use only if an index hasn't already been set (through setIndex, for example)
-        if ($params['index'] === null && $params['model'] !== null ) {
-            $params['index'] = $this->guessIndex($params['model'], $params['filters']);
-        }
+        $params['index'] = $this->guessIndex($params['model'], $params['filters'], $params['index']);
 
         // Ensure we have correct partition and sort key searches set up
         $parsedFilters = $this->validateFilters($params['model'], $params['filters'], $params['index']);
 
         $queryParams = $this->buildQueryParams($params, $parsedFilters);
 
-        // DynamoDb request
+        // Make DynamoDb request
         $response = self::client()->query($queryParams);
+
+        // Make a note of whether more results were available
+        // NB: only available when querying against a Model
+        $lastEvaluatedKey = $this->getLastEvaluatedKey($params['model'], $response['LastEvaluatedKey'] ?? null);
 
         // If requesting raw output, just return the list of item data
         // NB: This can't be used with "withData" as we need a model to map indexes to partition keys
@@ -37,6 +38,7 @@ class DynamoDbQuery
                     $response['Items'],
                 ),
                 raw: true,
+                lastEvaluatedKey: $lastEvaluatedKey,
             );
         }
 
@@ -47,17 +49,29 @@ class DynamoDbQuery
         // NB: If relations have been requested, we expect a single result to be returned
         if (count($params['relations'])) {
             return new DynamoDbResult(
-                results: [$this->attachModelRelations($params['model'], $models, $params['relations'])]
+                results: [$this->attachModelRelations($params['model'], $models, $params['relations'])],
+                lastEvaluatedKey: $lastEvaluatedKey,
             );
         }
 
         return new DynamoDbResult(
-            results: $models
+            results: $models,
+            lastEvaluatedKey: $lastEvaluatedKey,
         );
     }
 
-    protected function guessIndex(DynamoDbModel $model, array $filters): ?string
+    protected function guessIndex(?DynamoDbModel $model, array $filters, ?string $selectedIndex): ?string
     {
+        // If we're not operating on a model, we can't use this feature
+        if ($model === null) {
+            return $selectedIndex;
+        }
+
+        // If we already have a selected index, use that instead of attempting to guess
+        if ($selectedIndex !== null) {
+            return $selectedIndex;
+        }
+
         $bestIndex = null;
         $previousBestMatches = 0;
 
@@ -95,6 +109,7 @@ class DynamoDbQuery
             throw new QueryBuilderInvalidQuery('Can only search based on Partition key and Sort key');
         }
 
+        // We can only validate the filters if we're using a Model, otherwise we cannot know the attribute names
         $mappedFilters = $model !== null
             ? $this->validateFiltersAgainstModel($model, $filters, $index)
             : $filters;
@@ -116,20 +131,20 @@ class DynamoDbQuery
             // Only 1 filter given, it must be the partition key
             [ $attributeName ] = $mappedFilters[0];
 
-            if ($attributeName !== $model->partitionKey($index)) {
+            if ($attributeName !== $model::partitionKey($index)) {
                 throw new QueryBuilderInvalidQuery("Cannot Query using {{$attributeName}}");
             }
         } else {
             foreach ($mappedFilters as $filter) {
                 [ $attributeName ] = $filter;
 
-                if ($attributeName === $model->partitionKey($index)
-                    || $attributeName === $model->sortKey($index)
+                if ($attributeName === $model::partitionKey($index)
+                    || $attributeName === $model::sortKey($index)
                 ) {
                     continue;
                 }
 
-                // If this was neither partition key, nor sort key, it can't be used
+                // If this was neither partition key nor sort key, it can't be used
                 throw new QueryBuilderInvalidQuery("Cannot Query using {{$attributeName}}");
             }
         }
@@ -164,6 +179,10 @@ class DynamoDbQuery
 
         if ($params['limit'] !== null) {
             $queryParams['Limit'] = $params['limit'];
+        }
+
+        if ($params['after'] !== null) {
+            $queryParams['ExclusiveStartKey'] = $params['after']->toArray();
         }
 
         return $queryParams;
@@ -268,5 +287,29 @@ class DynamoDbQuery
         return $model::make(collect($item)->map(
             fn ($property) => self::client()->unmarshalValue($property)
         )->toArray());
+    }
+
+    protected function getLastEvaluatedKey(?DynamoDbModel $model = null, ?array $lastEvaluatedKey = null): ?LastEvaluatedKey
+    {
+        if ($model === null) {
+            return null;
+        }
+
+        if (!is_array($lastEvaluatedKey)) {
+            return null;
+        }
+
+        $skName = $model::sortKey();
+        $pkName = $model::partitionKey();
+
+        $skValue = $lastEvaluatedKey[$skName];
+        $pkValue = $lastEvaluatedKey[$pkName];
+
+        return new LastEvaluatedKey(
+            $pkName,
+            $this->client()->unmarshalValue($pkValue),
+            $skName,
+            $this->client()->unmarshalValue($skValue)
+        );
     }
 }
