@@ -36,7 +36,7 @@ class Relation extends BaseRelation
                 ->where(...$this->relation)
                 ->get();
 
-            $this->models = $models;
+            $this->models = $models->results;
             $this->haveFetchedRelation = true;
         }
 
