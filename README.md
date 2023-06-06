@@ -218,7 +218,7 @@ class Model extends \ClassManager\DynamoDb\Models\DynamoDbModel
 
 You can define mappings from secondary indexes to friendly model properties in the `$fieldMappings` array too.
 ```php
-class Model extends \ClassManager\DynamoDb\Models\DynamoDbModel
+class Model extends \JustRaviga\DynamoDb\Models\DynamoDbModel
 {
     // optional
     protected array $fieldMappings = [
@@ -231,3 +231,25 @@ class Model extends \ClassManager\DynamoDb\Models\DynamoDbModel
 ## Minimum Requirements
 1. PHP 8.2
 2. Laravel 10.0
+
+
+## Wishlist
+The things we might like to include (eventually) but didn't have time to properly consider:
+
+> Wrapping DynamoDb responses in a cache layer
+
+Optionally have models fetched from DynamoDb stored in memory for the duration of the request so multiple calls to the
+same partition/sort key return the same data without querying Dynamo.
+
+> Attribute casts
+
+Similar to the Laravel model $casts array, attributes should be coerced to/from these data types when fetching and
+saving with DynamoDb.
+
+> Extend the Collection class to include filter methods based on DynamoDb models
+
+Potential for new methods on the Collection class for pagination based on the Last Evaluated Key from DynamoDb.
+
+> Better documentation 🙈
+
+Docs can always be improved
