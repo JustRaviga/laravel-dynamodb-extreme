@@ -19,6 +19,8 @@ class Client
 
     protected bool $shouldLogQueries = false;
 
+    public static int $queryCount = 0;
+
     public function __construct()
     {
         $this->shouldLogQueries = config('dynamodb.defaults.log_queries', false);
@@ -37,6 +39,7 @@ class Client
     {
         $this->logQuery($type, $args);
         try {
+            self::$queryCount++;
             return $this->instance->{$type->value}($args);
         } catch (\Throwable $t) {
             Log::warning($t->getMessage());
