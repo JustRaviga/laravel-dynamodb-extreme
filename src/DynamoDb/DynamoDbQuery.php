@@ -42,8 +42,12 @@ class DynamoDbQuery
             );
         }
 
-        // Build model objects based on relations mentioned in the model that's been set
+        // Load all the results into models, we use the relations list here so we know which models to make
         $models = array_map(fn ($item) => $this->buildModelFromItem($item, $params['model'], $params['withData'], $params['relations']), $response['Items']);
+
+        // If any relations have been requested, check each model and see if it has a matching relation.
+        // Call the relation to load its contents.
+        $this->loadRelations($models, $params['relations']);
 
         // Attach relationships between models.
         // NB: If relations have been requested, we expect a single result to be returned
@@ -58,6 +62,21 @@ class DynamoDbQuery
             results: $models,
             lastEvaluatedKey: $lastEvaluatedKey,
         );
+    }
+
+    protected function loadRelations(array $models, array $relations): void
+    {
+        foreach ($models as $model) {
+            foreach ($relations as $relationName => $relation) {
+                if (method_exists($model, $relationName)) {
+                    $modelRelation = $model->{$relationName}();
+
+                    if ($modelRelation instanceof Relation) {
+                        $modelRelation->get();
+                    }
+                }
+            }
+        }
     }
 
     protected function guessIndex(?DynamoDbModel $model, array $filters, ?string $selectedIndex): ?string
@@ -225,7 +244,7 @@ class DynamoDbQuery
     /**
      * @param DynamoDbModel $model THIS IS NOT A FULLY POPULATED INSTANCE, it is a shell
      * @param array<DynamoDbModel> $models
-     * @param array<BaseRelation> $relations
+     * @param array<Relation> $relations
      */
     protected function attachModelRelations(DynamoDbModel $model, array $models, array $relations): DynamoDbModel
     {

@@ -8,8 +8,10 @@ use ClassManager\DynamoDb\Models\DynamoDbModel;
 use Illuminate\Support\Collection;
 use JsonException;
 
-class InlineRelation extends BaseRelation
+class InlineRelation implements ModelRelationship
 {
+    protected ?Collection $models = null;
+
     /**
      * @param class-string<DynamoDbModel> $relatedModel
      */
@@ -26,13 +28,16 @@ class InlineRelation extends BaseRelation
      */
     public function get(): Collection
     {
-        if (!$this->haveFetchedRelation) {
+        if ($this->models === null) {
             $this->unpackRelatedModels();
         }
 
         return $this->models;
     }
 
+    /**
+     * @throws JsonException
+     */
     protected function unpackRelatedModels(): void
     {
         $model = $this->relatedModel;
@@ -50,7 +55,6 @@ class InlineRelation extends BaseRelation
         $models = collect($modelData)->map(fn ($data) => $model::make($data));
 
         $this->models = $models;
-        $this->haveFetchedRelation = true;
     }
 
     public function save(DynamoDbModel|array $model): DynamoDbModel
@@ -79,9 +83,8 @@ class InlineRelation extends BaseRelation
 
     public function add(array|DynamoDbModel $model): static
     {
-        if (!$this->haveFetchedRelation) {
-            // unpack field if required
-            $this->get();
+        if ($this->models === null) {
+            $this->unpackRelatedModels();
         }
 
         if (! $model instanceof DynamoDbModel) {
@@ -90,6 +93,8 @@ class InlineRelation extends BaseRelation
         }
 
         // If the model hasn't been saved yet...
+        // This may seem like an oversight, but if the model had ever been saved, there will be the immutable partition
+        // key and sort keys set on it.
         if (count($model->dirtyAttributes()) === count($model->attributes())) {
             $parent = $this->parent;
 
@@ -102,7 +107,9 @@ class InlineRelation extends BaseRelation
             ]);
         }
 
-        parent::add($model);
+        if ($this->models->doesntContain(fn (DynamoDbModel $existingModel) => $model->uniqueKey() === $existingModel->uniqueKey())) {
+            $this->models->add($model);
+        }
 
         return $this;
     }

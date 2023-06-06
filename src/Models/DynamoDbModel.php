@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace ClassManager\DynamoDb\Models;
 
-use ClassManager\DynamoDb\DynamoDb\BaseRelation;
+use ClassManager\DynamoDb\DynamoDb\ModelRelationship;
 use ClassManager\DynamoDb\DynamoDb\InlineRelation;
 use ClassManager\DynamoDb\DynamoDbHelpers;
 use ClassManager\DynamoDb\Exceptions\InvalidInlineModel;
@@ -40,6 +40,7 @@ abstract class DynamoDbModel
     /**
      * Mark this as a "child model" by setting its parent class here.
      * This allows access to the parent's partition key when building relations.
+     * @var class-string<DynamoDbModel>|null $parent
      */
     protected static ?string $parent = null;
 
@@ -80,7 +81,7 @@ abstract class DynamoDbModel
         if (method_exists($this, $property)) {
             $relation = $this->$property();
 
-            if ($relation instanceof BaseRelation) {
+            if ($relation instanceof ModelRelationship) {
                 return $relation->get();
             }
         }
@@ -335,6 +336,7 @@ abstract class DynamoDbModel
     public static function table(): string
     {
         if (isset(self::$parent)) {
+            /** @var class-string<DynamoDbModel> $parent */
             $parent = self::$parent;
             return $parent::table();
         }

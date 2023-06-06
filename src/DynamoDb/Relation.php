@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace ClassManager\DynamoDb\DynamoDb;
 
+use ClassManager\DynamoDb\DynamoDbQueryBuilder;
 use ClassManager\DynamoDb\Models\DynamoDbModel;
 use Illuminate\Support\Collection;
 
-class Relation extends BaseRelation
+class Relation implements ModelRelationship
 {
     /**
      * @var Collection<DynamoDbModel>|null
@@ -26,15 +27,25 @@ class Relation extends BaseRelation
     ) {
     }
 
+    public function query(): DynamoDbQueryBuilder
+    {
+        $model = $this->relatedModel;
+        $parent = $this->parent;
+
+        return $model::query()
+            ->where($parent->partitionKey(), $parent->getMappedPartitionKeyValue())
+            ->where(...$this->relation);
+    }
+
+    public function reset(): void
+    {
+        $this->haveFetchedRelation = false;
+    }
+
     public function get(): Collection
     {
         if (!$this->haveFetchedRelation) {
-            $model = $this->relatedModel;
-            $parent = $this->parent;
-            $models = $model::query()
-                ->where($parent->partitionKey(), $parent->getMappedPartitionKeyValue())
-                ->where(...$this->relation)
-                ->get();
+            $models = $this->query()->getAll();
 
             $this->models = $models->results;
             $this->haveFetchedRelation = true;
@@ -62,6 +73,25 @@ class Relation extends BaseRelation
 
             $this->add($model);
         });
+    }
+
+    /**
+     * Accepts either an array of data that will be used to create a DynamoDbModel instance, or a DynamoDbModel instance
+     * itself.
+     * @param array|DynamoDbModel $model
+     * @return Relation
+     */
+    public function add(array|DynamoDbModel $model): static
+    {
+        if ($this->models === null) {
+            $this->models = collect();
+        }
+
+        if ($this->models->doesntContain(fn (DynamoDbModel $existingModel) => $model->uniqueKey() === $existingModel->uniqueKey())) {
+            $this->models->add($model);
+        }
+
+        return $this;
     }
 
     public function relatedModel(): string

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace ClassManager\DynamoDb\Traits;
 
-use ClassManager\DynamoDb\DynamoDb\BaseRelation;
 use ClassManager\DynamoDb\DynamoDb\Relation;
 use ClassManager\DynamoDb\DynamoDbHelpers;
 use ClassManager\DynamoDb\Models\DynamoDbModel;
@@ -41,7 +40,7 @@ trait HasRelations
     }
 
     /**
-     * @return array<BaseRelation> the relations already loaded for this model
+     * @return array<Relation> the relations already loaded for this model
      */
     public function relations(): array
     {
@@ -61,7 +60,7 @@ trait HasRelations
      * Configure a relationship to a child model
      * @param class-string<DynamoDbModel> $relatedClass
      */
-    protected function addRelation(string $relatedClass): BaseRelation
+    protected function addRelation(string $relatedClass): Relation
     {
         if (!isset($this->relations[$relatedClass])) {
             $this->relations[$relatedClass] = new Relation(
