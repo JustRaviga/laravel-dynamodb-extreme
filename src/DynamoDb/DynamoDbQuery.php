@@ -223,7 +223,9 @@ class DynamoDbQuery
     }
 
     /**
+     * @param DynamoDbModel $model THIS IS NOT A FULLY POPULATED INSTANCE, it is a shell
      * @param array<DynamoDbModel> $models
+     * @param array<BaseRelation> $relations
      */
     protected function attachModelRelations(DynamoDbModel $model, array $models, array $relations): DynamoDbModel
     {
@@ -235,9 +237,17 @@ class DynamoDbQuery
 
         // Look at each other model being returned and attach them to relations on the base model
         foreach ($models as $relatedModel) {
-            foreach($relations as $relationName => $relation) {
-                if ($model->hasRelation($relationName)) {
-                    $relation->add($relatedModel);
+            // No need to do anything with the base model
+            if ($relatedModel === $baseModel) {
+                continue;
+            }
+
+            foreach ($relations as $relationName => $relation) {
+                if ($baseModel->hasRelation($relationName)) {
+                    $modelRelation = $baseModel->{$relationName}();
+
+                    $modelRelation->add($relatedModel);
+                    $modelRelation->setHaveFetchedRelation(true);
                 }
             }
         }

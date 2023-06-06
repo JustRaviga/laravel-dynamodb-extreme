@@ -9,6 +9,7 @@ use ClassManager\DynamoDb\DynamoDb\DynamoDbResult;
 use ClassManager\DynamoDb\DynamoDb\LastEvaluatedKey;
 use ClassManager\DynamoDb\DynamoDb\Relation;
 use ClassManager\DynamoDb\Exceptions\InvalidRelation;
+use ClassManager\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
 use ClassManager\DynamoDb\Models\DynamoDbModel;
 use ClassManager\DynamoDb\Traits\UsesDynamoDbClient;
 
@@ -18,18 +19,38 @@ class DynamoDbQueryBuilder
 
     /**
      * Populated using ->where('field', 'value')
-     * @var array<string, string> $filters
+     * @var array<string, string>
      */
     protected array $filters = [];
 
+    /**
+     * If not set explicitly using withIndex(), will attempt to be guessed when making a query
+     * @var string|null
+     */
     protected ?string $index = null;
 
+    /**
+     * Maximum number of results that will be returned
+     * @var int|null
+     */
     protected ?int $limit = null;
 
+    /**
+     * Set using after(), will tell the query builder to return results starting after this one
+     * @var LastEvaluatedKey|null
+     */
     protected ?LastEvaluatedKey $after = null;
 
+    /**
+     * Allow querying against a specific Model, provides extra features like relation-mapping and key validation
+     * @var DynamoDbModel|null
+     */
     protected ?DynamoDbModel $model = null;
 
+    /**
+     * Whether to return results as Model objects, or as an array
+     * @var bool
+     */
     protected bool $raw = false;
 
     /**
@@ -43,6 +64,10 @@ class DynamoDbQueryBuilder
 
     protected bool $withData = false;
 
+    /**
+     * Gets a single group of results.  This is probably all you'll ever need to do, unless you think there's danger
+     * of the query response being >1mb.  In which case, use getAll() or paginated().
+     */
     public function get(): DynamoDbResult
     {
         return (new DynamoDbQuery())->query([
@@ -59,6 +84,10 @@ class DynamoDbQueryBuilder
         ]);
     }
 
+    /**
+     * Recursively makes queries to get results until there are no more results.  Only use this method if you expect
+     * to hit the query size limit, otherwise just use get().
+     */
     public function getAll(): DynamoDbResult
     {
         $params = [
@@ -95,6 +124,9 @@ class DynamoDbQueryBuilder
         );
     }
 
+    /**
+     * Returns the first result from a query.  Automatically applies a limit of 1 item to keep queries slick.
+     */
     public function first(): ?DynamoDbModel
     {
         return (new DynamoDbQuery())->query([
@@ -112,7 +144,10 @@ class DynamoDbQueryBuilder
     }
 
     /**
-     * @param LastEvaluatedKey|null $previous the Sort Key of the last result to use for pagination.  Fetches all results _after_ this one
+     * Makes a single request, optionally accepting an Exclusive Start Key of the last result returned for pagination.
+     * Basically this is alternative syntax for QueryBuilder()->after(LastEvaluatedKey $key)->get().
+     * @param LastEvaluatedKey|null $previous the Exclusive Start Key (combination of pk/sk) of the last result to use
+     *   for pagination.  Fetches results _after_ this one
      */
     public function paginate(?LastEvaluatedKey $previous = null): DynamoDbResult
     {
@@ -138,7 +173,7 @@ class DynamoDbQueryBuilder
     }
 
     /**
-     * Allow for simple paginating on a query by setting the last known sort key and we'll fetch results _after_ that one.
+     * Allow for simple paginating on a query by setting the last known sort key to fetch results _after_ that one.
      */
     public function after(LastEvaluatedKey $after): self
     {
@@ -210,13 +245,19 @@ class DynamoDbQueryBuilder
 
     public function withRelation(string $relationName): self
     {
+        if ($this->model === null) {
+            throw new QueryBuilderInvalidQuery(
+                'Cannot request results with relations when not querying against a Model'
+            );
+        }
+
         if (!$this->model->hasRelation($relationName)) {
             throw new InvalidRelation($relationName);
         }
 
         $relation = $this->model->{$relationName}();
 
-        // ensure this is an actual relationship
+        // Ensure this is an actual relationship
         if ($relation instanceof Relation) {
             $this->relationList[$relationName] = $relation;
         }
