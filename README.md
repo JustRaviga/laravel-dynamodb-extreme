@@ -7,39 +7,74 @@ This is a Query Builder package for DynamoDb access.  Inspired by other versions
 
 #### Get a single Model instance from DynamoDb
 ```php
-/** @var ?Model $model */
 $model = Model::find($partitionKey, $sortKey);
 ```
 
-Or, to throw Illuminate\Database\Eloquent\ModelNotFoundException if the model isn't found:
+Or, to throw `Illuminate\Database\Eloquent\ModelNotFoundException` if no results are returned:
 ```php
-/** @var Model $model */
 $model = Model::findOrFail($partitionKey, $sortKey);
 ```
 
 ----
 
 #### Get a Collection of Model instances from DynamoDb
-Note: only a single Model type is supported here.  You must make sure your query will only return models of the same
-type.  An Exception will be thrown if a property found in the database is not in the $fillable array on the model.
-NB: DynamoDb only supports exact matches on Partition keys, and `<`, `<=`, `=`, `>=`, `>`, `begins_with`, and `between`.
+Notes:
+1. Only a single Model type is supported here.  You must make sure your query will only return models of the same
+type.
+2. An Exception will be thrown if a property found in the database is not in the $fillable array on the model.
+3. DynamoDb only supports exact matches on Partition keys, and `<`, `<=`, `=`, `>=`, `>`, `begins_with`, and `between`
+matches on Sort Keys.
 ```php
-/** @var \Illuminate\Support\Collection<Model> $models */
-$models = Model::where('partitionKey', $partitionKey)
+/** @var DynamoDbResult $result */
+$result = Model::where('partitionKey', $partitionKey)
     ->where('sortKey', 'begins_with', 'MODEL#')
     ->get();
+
+/** @var \Illuminate\Support\Collection<DynamoDbModel> $models */
+$models = $result->results;
 ```
 
 You can optionally sort on the sortKey and limit the number of results:
 ```php
-/** @var \Illuminate\Support\Collection<Model> $models */
+/** @var DynamoDbResult $models */
 $models = Model::where('partitionKey', $partitionKey)
     ->sortDescending()
     ->limit(10)
     ->get();
 ```
 
-----
+If you know you're going to exceed the 1mb query size limit of DynamoDb, you can use the `getAll()` method to make
+many queries until the entire result set is returned:
+```php
+/** @var DynamoDbResult $models */
+$models = Model::where('partitionKey', $partitionKey)
+    ->getAll();
+```
+
+You can also get a specific set of results combining `limit()` and `after()`:
+```php
+$twoResults = Model::where('partitionKey', $partitionKey)
+    ->limit(2)
+    ->get();
+
+$twoMoreResults = Model::where('partitionKey', $partitionKey)
+    ->after($twoResults->lastEvaluatedKey)
+    ->limit(2)
+    ->get();
+```
+
+A shortcut for this is built into the `paginate` method:
+```php
+$twoResults = Model::where('partitionKey', $partitionKey)
+    ->limit(2)
+    ->paginate();
+
+$twoMoreResults = Model::where('partitionKey', $partitionKey)
+    ->limit(2)
+    ->paginate($twoResults->lastEvaluatedKey());
+```
+
+---
 
 #### Get a collection of models using a Secondary Index
 Provided the secondary index is configured (see below), it will be detected from the fields you are querying.
@@ -50,11 +85,11 @@ $models = Model::where('index_partition_key', $partitionKey)
     ->get();
 ```
 
-----
+---
 
 #### Create a Model instance in DynamoDb
+Immediately persist the model with `create`:
 ```php
-/** @var Model $model */
 $model = Model::create([
     'partitionKey' => 'value',
     'sortKey' => 'value',
@@ -62,7 +97,76 @@ $model = Model::create([
 ]);
 ```
 
-----
+Build the model in memory without making a database query with `make`:
+```php
+$model = Model::make([
+    'partitionKey' => 'value',
+    'sortKey' => 'sortKey',
+    // other attributes...
+]);
+
+// persist the model
+$model->save();
+```
+
+Alternatively use the `new Model()` syntax:
+```php
+$model = new Model([
+    'partitionKey' => 'value',
+    'sortKey' => 'value',
+    // other attributes
+]);
+
+// persist the model
+$model->save();
+```
+
+---
+
+#### Accessing Model attributes
+
+Once you've created your model, attributes are accessed the same as you would with Laravel, using object property syntax:
+```php
+$model = Model::find($partitionKey, $sortKey);
+
+$model->someAttribute = 'value';
+```
+
+You can update many properties at the same time using the `fill` method:
+```php
+$model = Model::find($partitionKey, $sortKey);
+$model->fill([
+    'someAttribute' => 'value',
+    // other attributes
+]);
+```
+
+These changes are not automatically persisted back to Dynamo, you need to save them manually:
+```php
+$model = Model::find($partitionKey, $sortKey);
+
+$model->someAttribute = 'value';
+$model->save();
+```
+
+or
+
+```php
+$model = Model::find($partitionKey, $sortKey);
+
+$model->fill([
+    'someAttribute' => 'value',
+])->save();
+```
+
+or even, to combine `fill` and `save`:
+```php
+$model = Model::find($partitionKey, $sortKey);
+
+$model->update([
+    'someAttribute' => 'value',
+]);
+```
 
 ## Setup and global config
 
@@ -112,7 +216,7 @@ Creating a model is easy.  At a bare minimum, you just need to define the table 
 an array of "fillable" attributes (note the partition and sort keys need to be fillable!):
 
 ```php
-class Model extends \ClassManager\DynamoDb\Models\DynamoDbModel
+class Model extends \DynamoDb\Models\DynamoDbModel
 {
     // optional, see environment variable for table name
     protected string $table = 'models';
@@ -136,7 +240,7 @@ To write more verbose code, you can create a mapping from internal/database fiel
 the `fieldMappings` protected property. The mappings are applied when fetching from the database and when saving to the
 database.  The rest of the time, you always use the mapped property name.
 ```php
-class Model extends \ClassManager\DynamoDb\Models\DynamoDbModel
+class Model extends \DynamoDb\Models\DynamoDbModel
 {
     // optional
     protected array $fieldMappings = [
@@ -148,11 +252,47 @@ class Model extends \ClassManager\DynamoDb\Models\DynamoDbModel
 
 ---
 
+By default, all models' Partition Keys are built with the model class name followed by a `#` then a UUID-7 (time-ordered UUID).
+Sort Keys default to the model name.
+For example:
+```php
+class Model extends \DynamoDb\Models\DynamoDbModel { }
+
+$model = new Model();
+// partition key = 'MODEL#{uuid-7}
+// sort key = 'MODEL'
+```
+
+You can also change these default values when creating new models by overriding these methods:
+```php
+class Model extends \DynamoDb\Models\DynamoDbModel
+{
+    public function defaultPartitionKey(): string
+    {
+        return 'MODEL#' . random_int(0,1000);    
+    }
+    
+    public function defaultSortKey(): string
+    {
+        return 'CREATED_AT#' . now()->toISOString();
+    }
+    
+    public function defaultValues(): array
+    {
+        return [
+            'attribute' => 'default value',        
+        ];
+    }
+}
+```
+
+### Related models
+
 You can configure related models that share the same Partition Key with some minor extra setup:
 ```php
-class ParentModel extends \ClassManager\DynamoDb\Models\DynamoDbModel
+class ParentModel extends \DynamoDb\Models\DynamoDbModel
 {
-    public function childModels(): \ClassManager\DynamoDb\DynamoDb\Relation
+    public function childModels(): \DynamoDb\DynamoDb\Relation
     {
         return $this->addRelation(ChildModel::class);
     }
@@ -161,7 +301,7 @@ class ParentModel extends \ClassManager\DynamoDb\Models\DynamoDbModel
 By default, this uses the Partition key of the parent model, and matches on the Sort key with a "begins_with" query against the child model's class name followed by a hash (#), something like `begins_with(sk, 'CHILDMODEL#')`.
 The matching itself can be configured on the child models by overriding the `relationSearchParams` method:
 ```php
-class ChildModel extends \ClassManager\DynamoDb\Models\DynamoDbModel
+class ChildModel extends \DynamoDb\Models\DynamoDbModel
 {
     public static function relationSearchParams(): array
     {
@@ -176,9 +316,9 @@ class ChildModel extends \ClassManager\DynamoDb\Models\DynamoDbModel
 
 The related models can be accessed as a Collection using a property of the same name as the relationship method, e.g:
 ```php
-class Model extends \ClassManager\DynamoDb\Models\DynamoDbModel
+class Model extends \DynamoDb\Models\DynamoDbModel
 {
-    public function children(): \ClassManager\DynamoDb\DynamoDb\Relation
+    public function children(): \DynamoDb\DynamoDb\Relation
     {
         return $this->addRelation(Child::class);
     }
@@ -189,13 +329,31 @@ $model = Model::find(...);
 $model->children->map(fn ($child) => $child->doSomething());
 ```
 
+#### "inline" relations
+
+In addition to using different rows in a DynamoDb table to hold related models, you can use a JSON attribute on a record
+as a relation.  We call this an "inline relation" and they can be accessed the same way as other relations:
+```php
+class Model extends \DynamoDb\Models\DynamoDbModel
+{
+    public function inline(): InlineRelation
+    {
+        return $this->addInlineRelation(Inline::class, 'inline');
+    }
+}
+
+$model = Model::find(...);
+
+$model->inline->map(fn ($child) => $child->doSomething());
+```
+
 ---
 
 If you want to use a secondary index on your table, just define the Partition and Sort Key names in the `$indexes` array.
 Be sure to add them to the `$fillable` array as well.
 
 ```php
-class Model extends \ClassManager\DynamoDb\Models\DynamoDbModel
+class Model extends \DynamoDb\Models\DynamoDbModel
 {
     // optional, see config values
     protected array $indexes = [
@@ -252,4 +410,13 @@ Potential for new methods on the Collection class for pagination based on the La
 
 > Better documentation 🙈
 
-Docs can always be improved
+Docs can always be improved.
+
+> Concurrent requests
+
+Figure out how to make many concurrent requests that can be _awaited_ and only continue execution once all of the
+requests have returned their data.
+
+> Table generation in code
+
+Essentially Laravel's migration system for DynamoDb tables
