@@ -71,7 +71,7 @@ class DynamoDbAdapter
             $model->uniqueKeyName() => $model->uniqueKey(),
         ];
 
-        $query = [
+        $client->updateItem([
             'TableName' => $model->table(),
             'ConsistentRead' => $model->consistentRead(),
             'Key' => $client->marshalItem([
@@ -81,8 +81,7 @@ class DynamoDbAdapter
             'UpdateExpression' => $this->buildInlineSetExpression($model->fieldName(), $model->uniqueKeyName()),
             'ExpressionAttributeNames' => $this->buildExpressionAttributeNames($attrNames),
             'ExpressionAttributeValues' => $this->buildExpressionAttributeValues($attributes),
-        ];
-        $client->updateItem($query);
+        ]);
     }
 
     public function update(DynamoDbModel $model, string $partitionKey, string $sortKey, array $attributes): void

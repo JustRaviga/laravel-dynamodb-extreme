@@ -16,6 +16,7 @@ use ClassManager\DynamoDb\Traits\HasRelations;
 use ClassManager\DynamoDb\Traits\UsesDynamoDbAdapter;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Ramsey\Uuid\Uuid;
+use stdClass;
 
 abstract class DynamoDbModel
 {
@@ -316,13 +317,6 @@ abstract class DynamoDbModel
         $partitionKey = $attributes[$this::partitionKey()];
         $sortKey = $attributes[$this::sortKey()];
 
-        // Remove the partition and sort keys from the data we're about to save
-        $attributesWithoutKeys = DynamoDbHelpers::listWithoutKeys($attributes, [
-            $this::partitionKey(),
-            $this::sortKey(),
-            $this->uniqueKeyName(),
-        ]);
-
         self::adapter()->saveInlineRelation(
             $this,
             $partitionKey,
@@ -372,7 +366,7 @@ abstract class DynamoDbModel
                 ->mapWithKeys(fn ($model) => [ $model->uniqueKey() => $model->attributes() ])
                 ->toArray();
 
-            $attributes[$relation->relatedProperty()] = count($models) === 0 ? new \stdClass() : $models;
+            $attributes[$relation->relatedProperty()] = count($models) === 0 ? new stdClass() : $models;
         }
 
         return $attributes;
