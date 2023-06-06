@@ -339,7 +339,7 @@ abstract class DynamoDbModel
             return $parent::table();
         }
 
-        return self::$table;
+        return static::$table;
     }
 
     public function toArray(): array
@@ -399,6 +399,11 @@ abstract class DynamoDbModel
     public function update(array $attributes): static
     {
         $this->fill($attributes);
+
+        if (count($this->dirty) === 0) {
+            // No dirty attributes, no need to make a request to Dynamo
+            return $this;
+        }
 
         // get the values transformed back to 'database ready' versions
         $attributes = collect($this->unFill());
