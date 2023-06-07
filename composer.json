@@ -1,11 +1,11 @@
 {
-    "name": "classmanager/dynamodb",
-    "description": "Class Manager DynamoDb access package",
+    "name": "justraviga/dynamodb",
+    "description": "JustRaviga DynamoDb access package",
     "type": "library",
     "license": "MIT",
     "authors": [
         {
-            "name": "Class Manager",
+            "name": "Just Raviga",
             "email": "hello@classmanager.com"
         }
     ],
@@ -14,16 +14,28 @@
         "laravel/framework": "^10.0",
         "aws/aws-sdk-php": "^3.269"
     },
+    "require-dev": {
+        "pestphp/pest": "^2.0",
+        "pestphp/pest-plugin-laravel": "^2.0",
+        "phpunit/phpunit": "^10.0",
+        "orchestra/testbench": "^8.5"
+    },
     "autoload": {
         "psr-4": {
-            "ClassManager\\DynamoDb\\" : "src/"
+            "JustRaviga\\DynamoDb\\" : "src/",
+            "Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel" : {
             "providers" : [
-                "ClassManager\\DynamoDb\\DynamoDbServiceProvider"
+                "JustRaviga\\DynamoDb\\DynamoDbServiceProvider"
             ]
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
         }
     }
 }
