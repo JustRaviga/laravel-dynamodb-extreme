@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb\Traits;
+namespace JustRaviga\DynamoDb\Traits;
 
-use ClassManager\DynamoDb\DynamoDb\Relation;
-use ClassManager\DynamoDb\DynamoDbHelpers;
-use ClassManager\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\DynamoDb\DynamoDb\Relation;
+use JustRaviga\DynamoDb\DynamoDbHelpers;
+use JustRaviga\DynamoDb\Models\DynamoDbModel;
 
 trait HasRelations
 {

@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb\DynamoDb;
+namespace JustRaviga\DynamoDb\DynamoDb;
 
-use ClassManager\DynamoDb\DynamoDb\Comparisons\BeginsWithComparison;
-use ClassManager\DynamoDb\DynamoDb\Comparisons\BetweenComparison;
-use ClassManager\DynamoDb\DynamoDb\Comparisons\Comparison;
-use ClassManager\DynamoDb\DynamoDb\Comparisons\EqualsComparison;
-use ClassManager\DynamoDb\DynamoDb\Comparisons\GreaterThanComparison;
-use ClassManager\DynamoDb\DynamoDb\Comparisons\GreaterThanOrEqualComparison;
-use ClassManager\DynamoDb\DynamoDb\Comparisons\LessThanComparison;
-use ClassManager\DynamoDb\DynamoDb\Comparisons\LessThanOrEqualComparison;
-use ClassManager\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
+use JustRaviga\DynamoDb\DynamoDb\Comparisons\BeginsWithComparison;
+use JustRaviga\DynamoDb\DynamoDb\Comparisons\BetweenComparison;
+use JustRaviga\DynamoDb\DynamoDb\Comparisons\Comparison;
+use JustRaviga\DynamoDb\DynamoDb\Comparisons\EqualsComparison;
+use JustRaviga\DynamoDb\DynamoDb\Comparisons\GreaterThanComparison;
+use JustRaviga\DynamoDb\DynamoDb\Comparisons\GreaterThanOrEqualComparison;
+use JustRaviga\DynamoDb\DynamoDb\Comparisons\LessThanComparison;
+use JustRaviga\DynamoDb\DynamoDb\Comparisons\LessThanOrEqualComparison;
+use JustRaviga\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
 
 class ComparisonBuilder
 {

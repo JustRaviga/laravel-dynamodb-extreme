@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb\DynamoDb\Comparisons;
+namespace JustRaviga\DynamoDb\DynamoDb\Comparisons;
 
 abstract class Comparison
 {

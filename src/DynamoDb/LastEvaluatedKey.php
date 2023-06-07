@@ -1,8 +1,10 @@
 <?php
 
-namespace ClassManager\DynamoDb\DynamoDb;
+declare(strict_types=1);
 
-use ClassManager\DynamoDb\Traits\UsesDynamoDbClient;
+namespace JustRaviga\DynamoDb\DynamoDb;
+
+use JustRaviga\DynamoDb\Traits\UsesDynamoDbClient;
 
 readonly class LastEvaluatedKey
 {

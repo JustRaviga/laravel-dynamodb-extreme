@@ -2,12 +2,10 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb\Traits;
+namespace JustRaviga\DynamoDb\Traits;
 
-use ClassManager\DynamoDb\DynamoDb\Client;
-use ClassManager\DynamoDb\DynamoDb\DynamoDbAdapter;
-use ClassManager\DynamoDb\Exceptions\DynamoDbAdapterNotInContainer;
-use ClassManager\DynamoDb\Exceptions\DynamoDbClientNotInContainer;
+use JustRaviga\DynamoDb\DynamoDb\DynamoDbAdapter;
+use JustRaviga\DynamoDb\Exceptions\DynamoDbAdapterNotInContainer;
 use Illuminate\Container\EntryNotFoundException;
 use Psr\Container\ContainerExceptionInterface;
 

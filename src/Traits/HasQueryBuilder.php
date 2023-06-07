@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb\Traits;
+namespace JustRaviga\DynamoDb\Traits;
 
-use ClassManager\DynamoDb\DynamoDbQueryBuilder;
-use ClassManager\DynamoDb\Exceptions\InvalidRelation;
-use ClassManager\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\DynamoDb\DynamoDbQueryBuilder;
+use JustRaviga\DynamoDb\Models\DynamoDbModel;
 
 trait HasQueryBuilder
 {

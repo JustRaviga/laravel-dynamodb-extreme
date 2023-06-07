@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb;
+namespace JustRaviga\DynamoDb;
 
 class DynamoDbHelpers
 {

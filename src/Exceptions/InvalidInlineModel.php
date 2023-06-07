@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb\Exceptions;
+namespace JustRaviga\DynamoDb\Exceptions;
 
-use ClassManager\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\DynamoDb\Models\DynamoDbModel;
 
 final class InvalidInlineModel extends \RuntimeException
 {

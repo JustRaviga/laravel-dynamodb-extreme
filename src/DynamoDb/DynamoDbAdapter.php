@@ -1,10 +1,11 @@
 <?php
 
-namespace ClassManager\DynamoDb\DynamoDb;
+declare(strict_types=1);
 
-use ClassManager\DynamoDb\Models\DynamoDbModel;
-use ClassManager\DynamoDb\Traits\UsesDynamoDbClient;
-use Illuminate\Support\Collection;
+namespace JustRaviga\DynamoDb\DynamoDb;
+
+use JustRaviga\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\DynamoDb\Traits\UsesDynamoDbClient;
 
 class DynamoDbAdapter
 {

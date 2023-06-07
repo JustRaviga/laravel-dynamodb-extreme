@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb\DynamoDb;
+namespace JustRaviga\DynamoDb\DynamoDb;
 
-use ClassManager\DynamoDb\Models\DynamoDbModel;
 use Illuminate\Support\Collection;
 use JsonException;
+use JustRaviga\DynamoDb\Contracts\ModelRelationship;
+use JustRaviga\DynamoDb\Models\DynamoDbModel;
 
 class InlineRelation implements ModelRelationship
 {

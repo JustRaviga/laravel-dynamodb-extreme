@@ -1,6 +1,8 @@
 <?php
 
-namespace ClassManager\DynamoDb\DynamoDb;
+declare(strict_types=1);
+
+namespace JustRaviga\DynamoDb\Contracts;
 
 use Illuminate\Support\Collection;
 

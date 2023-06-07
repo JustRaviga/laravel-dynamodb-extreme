@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb\DynamoDb;
+namespace JustRaviga\DynamoDb\DynamoDb;
 
 use Aws\DynamoDb\DynamoDbClient;
 use Aws\DynamoDb\Marshaler;
 use Aws\Result;
 use Aws\Sdk;
-use ClassManager\DynamoDb\Enums\DynamoDbQueryType;
-use ClassManager\DynamoDb\Exceptions\DynamoDbQueryError;
+use JustRaviga\DynamoDb\Enums\DynamoDbQueryType;
+use JustRaviga\DynamoDb\Exceptions\DynamoDbQueryError;
 use Illuminate\Support\Facades\Log;
 
 class Client

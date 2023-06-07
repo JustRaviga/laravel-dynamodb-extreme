@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb\Traits;
+namespace JustRaviga\DynamoDb\Traits;
 
-use ClassManager\DynamoDb\DynamoDb\InlineRelation;
+use JustRaviga\DynamoDb\DynamoDb\InlineRelation;
 
 trait HasInlineRelations
 {

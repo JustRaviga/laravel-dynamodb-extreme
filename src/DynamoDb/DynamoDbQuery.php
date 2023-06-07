@@ -1,10 +1,12 @@
 <?php
 
-namespace ClassManager\DynamoDb\DynamoDb;
+declare(strict_types=1);
 
-use ClassManager\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
-use ClassManager\DynamoDb\Models\DynamoDbModel;
-use ClassManager\DynamoDb\Traits\UsesDynamoDbClient;
+namespace JustRaviga\DynamoDb\DynamoDb;
+
+use JustRaviga\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
+use JustRaviga\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\DynamoDb\Traits\UsesDynamoDbClient;
 
 class DynamoDbQuery
 {
@@ -48,15 +50,6 @@ class DynamoDbQuery
         // If any relations have been requested, check each model and see if it has a matching relation.
         // Call the relation to load its contents.
         $this->loadRelations($models, $params['relations']);
-
-        // Attach relationships between models.
-        // NB: If relations have been requested, we expect a single result to be returned
-        if (count($params['relations'])) {
-            return new DynamoDbResult(
-                results: [$this->attachModelRelations($params['model'], $models, $params['relations'])],
-                lastEvaluatedKey: $lastEvaluatedKey,
-            );
-        }
 
         return new DynamoDbResult(
             results: $models,
@@ -239,39 +232,6 @@ class DynamoDbQuery
     protected function buildQueryKeyConditions(array $parsedFilters): string
     {
         return implode(' AND ', array_map(fn ($filter) => (string) $filter, $parsedFilters));
-    }
-
-    /**
-     * @param DynamoDbModel $model THIS IS NOT A FULLY POPULATED INSTANCE, it is a shell
-     * @param array<DynamoDbModel> $models
-     * @param array<Relation> $relations
-     */
-    protected function attachModelRelations(DynamoDbModel $model, array $models, array $relations): DynamoDbModel
-    {
-        // Find the instance of the base model
-        /** @var DynamoDbModel $baseModel */
-        $baseModel = array_filter($models, fn (DynamoDbModel $search) => $search::class === $model::class)[0];
-
-        assert($baseModel instanceof $model);
-
-        // Look at each other model being returned and attach them to relations on the base model
-        foreach ($models as $relatedModel) {
-            // No need to do anything with the base model
-            if ($relatedModel === $baseModel) {
-                continue;
-            }
-
-            foreach ($relations as $relationName => $relation) {
-                if ($baseModel->hasRelation($relationName)) {
-                    $modelRelation = $baseModel->{$relationName}();
-
-                    $modelRelation->add($relatedModel);
-                    $modelRelation->setHaveFetchedRelation(true);
-                }
-            }
-        }
-
-        return $baseModel;
     }
 
     /**

@@ -1,6 +1,8 @@
 <?php
 
-namespace ClassManager\DynamoDb\Enums;
+declare(strict_types=1);
+
+namespace JustRaviga\DynamoDb\Enums;
 
 enum DynamoDbQueryType: string
 {

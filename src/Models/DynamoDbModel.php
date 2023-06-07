@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb\Models;
+namespace JustRaviga\DynamoDb\Models;
 
-use ClassManager\DynamoDb\DynamoDb\ModelRelationship;
-use ClassManager\DynamoDb\DynamoDb\InlineRelation;
-use ClassManager\DynamoDb\DynamoDbHelpers;
-use ClassManager\DynamoDb\Exceptions\InvalidInlineModel;
-use ClassManager\DynamoDb\Exceptions\PropertyNotFillable;
-use ClassManager\DynamoDb\Traits\HasAttributes;
-use ClassManager\DynamoDb\Traits\HasInlineRelations;
-use ClassManager\DynamoDb\Traits\HasQueryBuilder;
-use ClassManager\DynamoDb\Traits\HasRelations;
-use ClassManager\DynamoDb\Traits\UsesDynamoDbAdapter;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use JustRaviga\DynamoDb\Contracts\ModelRelationship;
+use JustRaviga\DynamoDb\DynamoDb\InlineRelation;
+use JustRaviga\DynamoDb\DynamoDbHelpers;
+use JustRaviga\DynamoDb\Exceptions\InvalidInlineModel;
+use JustRaviga\DynamoDb\Exceptions\PropertyNotFillable;
+use JustRaviga\DynamoDb\Traits\HasAttributes;
+use JustRaviga\DynamoDb\Traits\HasInlineRelations;
+use JustRaviga\DynamoDb\Traits\HasQueryBuilder;
+use JustRaviga\DynamoDb\Traits\HasRelations;
+use JustRaviga\DynamoDb\Traits\UsesDynamoDbAdapter;
 use Ramsey\Uuid\Uuid;
 use stdClass;
 
@@ -46,7 +46,7 @@ abstract class DynamoDbModel
 
     protected static string $partitionKey;
     protected static string $sortKey;
-    protected static string $table;
+    protected static string $table = '';
 
     /**
      * @param array<string,string> $attributes
@@ -123,7 +123,7 @@ abstract class DynamoDbModel
     protected function applyDefaultModelConfiguration(): void
     {
         static::$globalSecondaryIndexes = config('dynamodb.defaults.global_secondary_indexes');
-        static::$table = static::$table ?? config('dynamodb.defaults.table');
+        static::$table = static::$table ?: config('dynamodb.defaults.table');
         static::$partitionKey = static::$partitionKey ?? config('dynamodb.defaults.partition_key');
         static::$sortKey = static::$sortKey ?? config('dynamodb.defaults.sort_key');
     }
@@ -207,7 +207,7 @@ abstract class DynamoDbModel
 
     public static function find(string $partitionKey, string $sortKey): ?static
     {
-        $attributes = self::adapter()->get(self::class, $partitionKey, $sortKey);
+        $attributes = self::adapter()->get(static::class, $partitionKey, $sortKey);
 
         // Nothing found for the given partition/sort key combination
         if ($attributes === null) {
@@ -317,6 +317,11 @@ abstract class DynamoDbModel
 
         $partitionKey = $attributes[$this::partitionKey()];
         $sortKey = $attributes[$this::sortKey()];
+
+        // Remove partition and sort keys from attributes we're about to save
+        unset($attributes[$this::partitionKey()]);
+        unset($attributes[$this::sortKey()]);
+        unset($attributes[$this->uniqueKeyName()]);
 
         self::adapter()->saveInlineRelation(
             $this,

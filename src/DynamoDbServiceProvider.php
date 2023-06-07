@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb;
+namespace JustRaviga\DynamoDb;
 
-use ClassManager\DynamoDb\DynamoDb\Client;
-use ClassManager\DynamoDb\DynamoDb\DynamoDbAdapter;
+use JustRaviga\DynamoDb\DynamoDb\Client;
+use JustRaviga\DynamoDb\DynamoDb\DynamoDbAdapter;
 use Illuminate\Support\ServiceProvider;
 
 class DynamoDbServiceProvider extends ServiceProvider

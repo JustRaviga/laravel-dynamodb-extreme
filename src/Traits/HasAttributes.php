@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb\Traits;
+namespace JustRaviga\DynamoDb\Traits;
 
-use ClassManager\DynamoDb\Exceptions\PartitionKeyNotSet;
-use ClassManager\DynamoDb\Exceptions\SortKeyNotSet;
+use JustRaviga\DynamoDb\Exceptions\PartitionKeyNotSet;
+use JustRaviga\DynamoDb\Exceptions\SortKeyNotSet;
 
 trait HasAttributes
 {

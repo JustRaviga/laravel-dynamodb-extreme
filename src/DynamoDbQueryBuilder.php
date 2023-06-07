@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace ClassManager\DynamoDb;
+namespace JustRaviga\DynamoDb;
 
-use ClassManager\DynamoDb\DynamoDb\DynamoDbQuery;
-use ClassManager\DynamoDb\DynamoDb\DynamoDbResult;
-use ClassManager\DynamoDb\DynamoDb\LastEvaluatedKey;
-use ClassManager\DynamoDb\DynamoDb\Relation;
-use ClassManager\DynamoDb\Exceptions\InvalidRelation;
-use ClassManager\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
-use ClassManager\DynamoDb\Models\DynamoDbModel;
-use ClassManager\DynamoDb\Traits\UsesDynamoDbClient;
+use JustRaviga\DynamoDb\DynamoDb\DynamoDbQuery;
+use JustRaviga\DynamoDb\DynamoDb\DynamoDbResult;
+use JustRaviga\DynamoDb\DynamoDb\LastEvaluatedKey;
+use JustRaviga\DynamoDb\DynamoDb\Relation;
+use JustRaviga\DynamoDb\Exceptions\InvalidRelation;
+use JustRaviga\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
+use JustRaviga\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\DynamoDb\Traits\UsesDynamoDbClient;
 
 class DynamoDbQueryBuilder
 {
