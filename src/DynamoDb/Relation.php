@@ -38,11 +38,6 @@ class Relation implements ModelRelationship
             ->where(...$this->relation);
     }
 
-    public function reset(): void
-    {
-        $this->haveFetchedRelation = false;
-    }
-
     public function get(): Collection
     {
         if (!$this->haveFetchedRelation) {
