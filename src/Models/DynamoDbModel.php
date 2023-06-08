@@ -197,14 +197,6 @@ abstract class DynamoDbModel
         return $this;
     }
 
-    /**
-     * For inline relations, this specifies the attribute name in Dynamo where the data for this object can be found.
-     */
-    public function fieldName(): string
-    {
-        return '';
-    }
-
     public static function find(string $partitionKey, string $sortKey): ?static
     {
         $attributes = self::adapter()->get(static::class, $partitionKey, $sortKey);
@@ -301,34 +293,6 @@ abstract class DynamoDbModel
         // Now we have persisted our data, we no longer have any dirty data
         $this->original = $this->attributes;
         $this->dirty = [];
-
-        return $this;
-    }
-
-    public function saveInlineRelation(): static
-    {
-        $fieldName = $this->fieldName();
-
-        if ($fieldName === '') {
-            throw new InvalidInlineModel($this);
-        }
-
-        $attributes = $this->unFill();
-
-        $partitionKey = $attributes[$this::partitionKey()];
-        $sortKey = $attributes[$this::sortKey()];
-
-        // Remove partition and sort keys from attributes we're about to save
-        unset($attributes[$this::partitionKey()]);
-        unset($attributes[$this::sortKey()]);
-        unset($attributes[$this->uniqueKeyName()]);
-
-        self::adapter()->saveInlineRelation(
-            $this,
-            $partitionKey,
-            $sortKey,
-            $attributes
-        );
 
         return $this;
     }
@@ -433,36 +397,6 @@ abstract class DynamoDbModel
         // Now we have persisted our data, we no longer have any dirty data
         $this->original = $this->attributes;
         $this->dirty = [];
-
-        return $this;
-    }
-
-    public function updateInlineRelation(): static
-    {
-        $fieldName = $this->fieldName();
-
-        if ($fieldName === '') {
-            throw new InvalidInlineModel($this);
-        }
-
-        $attributes = $this->unFill();
-
-        $partitionKey = $attributes[$this::partitionKey()];
-        $sortKey = $attributes[$this::sortKey()];
-
-        // Remove the partition, sort keys, and the unique key from the data we're about to save
-        $attributes = DynamoDbHelpers::listWithoutKeys($attributes, [
-            $this::partitionKey(),
-            $this::sortKey(),
-            $this->uniqueKeyName()
-        ]);
-
-        self::adapter()->updateInlineRelation(
-            $this,
-            $partitionKey,
-            $sortKey,
-            $attributes
-        );
 
         return $this;
     }
