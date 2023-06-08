@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace JustRaviga\LaravelDynamodbExtreme\Traits;
 
-use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use JsonException;
+use JustRaviga\LaravelDynamodbExtreme\Contracts\CastsAttributes;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\AttributeCastError;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\PartitionKeyNotSet;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\SortKeyNotSet;

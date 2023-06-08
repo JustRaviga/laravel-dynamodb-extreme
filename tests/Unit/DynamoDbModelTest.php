@@ -85,7 +85,7 @@ it('correctly casts attributes when saving values to dynamodb', function() {
         'collection_field' => '[1,2,3]',
     ]);
 
-    $model = $model::find($model->pk, $model->sk);
+    $model = $model::findOrFail($model->pk, $model->sk);
 
     expect($model->json_field)->toBeArray()
         ->and($model->json_field)->toHaveCount(2)
@@ -105,4 +105,20 @@ it('correctly casts attributes when saving values to dynamodb', function() {
         ->and($model->string_set_field)->toHaveCount(2)
         ->and($model->collection_field)->toBeInstanceOf(Collection::class)
         ->and($model->collection_field)->toHaveCount(3);
+});
+it('correctly casts a custom cast value', function() {
+    $model = DemoModelWithCasts::make([
+        'reversed' => 'hello',
+    ]);
+
+    expect($model->reversed)->toBe('olleh');
+});
+it('correctly casts a custom cast value when saving values to dynamodb', function() {
+    $model = DemoModelWithCasts::create([
+        'reversed' => 'hello',
+    ]);
+
+    $model = DemoModelWithCasts::findOrFail($model->pk, $model->sk);
+
+    expect($model->reversed)->toBe('olleh');
 });

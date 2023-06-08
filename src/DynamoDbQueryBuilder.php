@@ -189,11 +189,6 @@ class DynamoDbQueryBuilder
         return $this;
     }
 
-    public static function query(): self
-    {
-        return new self();
-    }
-
     /**
      * Will return the raw data fetched from DynamoDb rather than coercing it into models
      * @return $this

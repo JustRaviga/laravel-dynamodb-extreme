@@ -16,6 +16,7 @@ use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
  * @property string $number_set_field
  * @property string $binary_set_field
  * @property string $collection_field
+ * @property string $reversed
  */
 class DemoModelWithCasts extends DynamoDbModel {
     protected static string $table = 'test';
@@ -34,6 +35,8 @@ class DemoModelWithCasts extends DynamoDbModel {
         'binary_set_field',
         'collection_field',
 
+        'reversed',
+
         // todo
         'date_field',
     ];
@@ -48,5 +51,7 @@ class DemoModelWithCasts extends DynamoDbModel {
         'number_set_field' => 'set:number',
         'binary_set_field' => 'set:binary',
         'collection_field' => 'collection',
+
+        'reversed' => DemoAttributeCast::class
     ];
 }
