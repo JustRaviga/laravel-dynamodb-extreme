@@ -64,6 +64,9 @@ abstract class DynamoDbModel
         if ($loading === true) {
             $this->storeOriginalAttributes($attributes);
         }
+
+        $this->castAttributes($attributes);
+
         $this->fill($attributes);
     }
 
@@ -328,6 +331,9 @@ abstract class DynamoDbModel
         $attributes = collect($this->attributes)
             ->mapWithKeys(fn ($value, $attribute) => [$this->getReverseMappedPropertyName($attribute) => $value])
             ->toArray();
+
+        // Apply any casts
+        $this->packAttributes($attributes);
 
         // Apply any loaded inline-relations
         foreach($this->inlineRelations() as $relation)
