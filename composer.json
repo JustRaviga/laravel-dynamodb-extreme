@@ -1,5 +1,5 @@
 {
-    "name": "justraviga/dynamodb",
+    "name": "justraviga/laravel-dynamodb-extreme",
     "description": "JustRaviga DynamoDb access package",
     "type": "library",
     "license": "MIT",
