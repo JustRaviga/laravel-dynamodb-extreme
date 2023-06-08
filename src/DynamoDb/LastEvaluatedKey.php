@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\DynamoDb;
+namespace JustRaviga\LaravelDynamodbExtreme\DynamoDb;
 
-use JustRaviga\DynamoDb\Traits\UsesDynamoDbClient;
+use JustRaviga\LaravelDynamodbExtreme\Traits\UsesDynamoDbClient;
 
 readonly class LastEvaluatedKey
 {

@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb;
+namespace JustRaviga\LaravelDynamodbExtreme;
 
-use JustRaviga\DynamoDb\DynamoDb\DynamoDbQuery;
-use JustRaviga\DynamoDb\DynamoDb\DynamoDbResult;
-use JustRaviga\DynamoDb\DynamoDb\LastEvaluatedKey;
-use JustRaviga\DynamoDb\DynamoDb\Relation;
-use JustRaviga\DynamoDb\Exceptions\InvalidRelation;
-use JustRaviga\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
-use JustRaviga\DynamoDb\Models\DynamoDbModel;
-use JustRaviga\DynamoDb\Traits\UsesDynamoDbClient;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\DynamoDbQuery;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\DynamoDbResult;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\LastEvaluatedKey;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Relation;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\InvalidRelation;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\QueryBuilderInvalidQuery;
+use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
+use JustRaviga\LaravelDynamodbExtreme\Traits\UsesDynamoDbClient;
 
 class DynamoDbQueryBuilder
 {

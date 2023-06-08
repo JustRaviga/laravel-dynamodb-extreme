@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\Traits;
+namespace JustRaviga\LaravelDynamodbExtreme\Traits;
 
-use JustRaviga\DynamoDb\DynamoDb\InlineRelation;
-use JustRaviga\DynamoDb\DynamoDbHelpers;
-use JustRaviga\DynamoDb\Exceptions\InvalidInlineModel;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\InlineRelation;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDbHelpers;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\InvalidInlineModel;
 
 trait HasInlineRelations
 {

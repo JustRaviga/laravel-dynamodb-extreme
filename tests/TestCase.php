@@ -8,12 +8,10 @@ use Orchestra\Testbench\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
-//    use CreatesApplication, DatabaseTransactions;
-
     protected function getPackageProviders($app)
     {
         return [
-            'JustRaviga\\DynamoDb\\DynamoDbServiceProvider'
+            'JustRaviga\\LaravelDynamodbExtreme\\DynamoDbServiceProvider'
         ];
     }
 }

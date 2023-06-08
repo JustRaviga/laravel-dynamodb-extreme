@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\Contracts;
+namespace JustRaviga\LaravelDynamodbExtreme\Contracts;
 
 use Illuminate\Support\Collection;
 

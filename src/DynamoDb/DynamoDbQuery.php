@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\DynamoDb;
+namespace JustRaviga\LaravelDynamodbExtreme\DynamoDb;
 
-use JustRaviga\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
-use JustRaviga\DynamoDb\Models\DynamoDbModel;
-use JustRaviga\DynamoDb\Traits\UsesDynamoDbClient;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\QueryBuilderInvalidQuery;
+use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
+use JustRaviga\LaravelDynamodbExtreme\Traits\UsesDynamoDbClient;
 
 class DynamoDbQuery
 {

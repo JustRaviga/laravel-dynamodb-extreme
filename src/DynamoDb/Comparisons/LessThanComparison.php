@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\DynamoDb\Comparisons;
+namespace JustRaviga\LaravelDynamodbExtreme\DynamoDb\Comparisons;
 
 use ValueError;
 

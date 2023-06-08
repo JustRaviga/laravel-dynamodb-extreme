@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\Traits;
+namespace JustRaviga\LaravelDynamodbExtreme\Traits;
 
-use JustRaviga\DynamoDb\DynamoDb\DynamoDbAdapter;
-use JustRaviga\DynamoDb\Exceptions\DynamoDbAdapterNotInContainer;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\DynamoDbAdapter;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\DynamoDbAdapterNotInContainer;
 use Illuminate\Container\EntryNotFoundException;
 use Psr\Container\ContainerExceptionInterface;
 

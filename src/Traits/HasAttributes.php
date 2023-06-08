@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\Traits;
+namespace JustRaviga\LaravelDynamodbExtreme\Traits;
 
-use JustRaviga\DynamoDb\Exceptions\PartitionKeyNotSet;
-use JustRaviga\DynamoDb\Exceptions\SortKeyNotSet;
+use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\PartitionKeyNotSet;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\SortKeyNotSet;
 
 trait HasAttributes
 {

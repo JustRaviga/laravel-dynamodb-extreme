@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
-use JustRaviga\DynamoDb\DynamoDb\Client;
-use JustRaviga\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Client;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\QueryBuilderInvalidQuery;
 use Ramsey\Uuid\Uuid;
 use Tests\Resources\DemoModel;
 

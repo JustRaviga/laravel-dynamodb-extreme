@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb;
+namespace JustRaviga\LaravelDynamodbExtreme;
 
-use JustRaviga\DynamoDb\DynamoDb\Client;
-use JustRaviga\DynamoDb\DynamoDb\DynamoDbAdapter;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Client;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\DynamoDbAdapter;
 use Illuminate\Support\ServiceProvider;
 
 class DynamoDbServiceProvider extends ServiceProvider

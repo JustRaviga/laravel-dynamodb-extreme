@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\DynamoDb;
+namespace JustRaviga\LaravelDynamodbExtreme\DynamoDb;
 
 use Illuminate\Support\Collection;
 use JsonException;
-use JustRaviga\DynamoDb\Contracts\ModelRelationship;
-use JustRaviga\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\LaravelDynamodbExtreme\Contracts\ModelRelationship;
+use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
 
 class InlineRelation implements ModelRelationship
 {

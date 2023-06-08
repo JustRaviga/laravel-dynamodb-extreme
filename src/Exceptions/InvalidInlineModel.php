@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\Exceptions;
+namespace JustRaviga\LaravelDynamodbExtreme\Exceptions;
 
-use JustRaviga\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
 use RuntimeException;
 
 final class InvalidInlineModel extends RuntimeException

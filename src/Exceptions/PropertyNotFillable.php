@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\Exceptions;
+namespace JustRaviga\LaravelDynamodbExtreme\Exceptions;
 
 final class PropertyNotFillable extends \RuntimeException
 {

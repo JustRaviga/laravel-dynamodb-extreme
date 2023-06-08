@@ -22,14 +22,14 @@
     },
     "autoload": {
         "psr-4": {
-            "JustRaviga\\DynamoDb\\" : "src/",
+            "JustRaviga\\LaravelDynamodbExtreme\\" : "src/",
             "Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel" : {
             "providers" : [
-                "JustRaviga\\DynamoDb\\DynamoDbServiceProvider"
+                "JustRaviga\\LaravelDynamodbExtreme\\DynamoDbServiceProvider"
             ]
         }
     },

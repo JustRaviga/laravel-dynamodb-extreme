@@ -2,7 +2,7 @@
 
 namespace Tests\Resources;
 
-use JustRaviga\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
 
 /**
  * @property string $pk

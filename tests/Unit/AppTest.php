@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use JustRaviga\DynamoDb\DynamoDb\Client;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Client;
 
 /**
  * The purpose of these tests are to ensure that Laravel's bootstrapping has happened in the testing environment

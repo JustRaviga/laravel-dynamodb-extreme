@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\Traits;
+namespace JustRaviga\LaravelDynamodbExtreme\Traits;
 
-use JustRaviga\DynamoDb\DynamoDbQueryBuilder;
-use JustRaviga\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDbQueryBuilder;
+use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
 
 trait HasQueryBuilder
 {

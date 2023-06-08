@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\Traits;
+namespace JustRaviga\LaravelDynamodbExtreme\Traits;
 
-use JustRaviga\DynamoDb\DynamoDb\Relation;
-use JustRaviga\DynamoDb\DynamoDbHelpers;
-use JustRaviga\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Relation;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDbHelpers;
+use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
 
 trait HasRelations
 {

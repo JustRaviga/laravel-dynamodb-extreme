@@ -3,9 +3,9 @@
 namespace Tests\Resources;
 
 use Illuminate\Support\Collection;
-use JustRaviga\DynamoDb\DynamoDb\InlineRelation;
-use JustRaviga\DynamoDb\DynamoDb\Relation;
-use JustRaviga\DynamoDb\Models\DynamoDbModel;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\InlineRelation;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Relation;
+use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
 use stdClass;
 
 /**

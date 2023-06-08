@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\Models;
+namespace JustRaviga\LaravelDynamodbExtreme\Models;
 
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use JustRaviga\DynamoDb\Contracts\ModelRelationship;
-use JustRaviga\DynamoDb\DynamoDb\InlineRelation;
-use JustRaviga\DynamoDb\DynamoDbHelpers;
-use JustRaviga\DynamoDb\Exceptions\InvalidInlineModel;
-use JustRaviga\DynamoDb\Exceptions\PropertyNotFillable;
-use JustRaviga\DynamoDb\Traits\HasAttributes;
-use JustRaviga\DynamoDb\Traits\HasInlineRelations;
-use JustRaviga\DynamoDb\Traits\HasQueryBuilder;
-use JustRaviga\DynamoDb\Traits\HasRelations;
-use JustRaviga\DynamoDb\Traits\UsesDynamoDbAdapter;
+use JustRaviga\LaravelDynamodbExtreme\Contracts\ModelRelationship;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\InlineRelation;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDbHelpers;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\InvalidInlineModel;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\PropertyNotFillable;
+use JustRaviga\LaravelDynamodbExtreme\Traits\HasAttributes;
+use JustRaviga\LaravelDynamodbExtreme\Traits\HasInlineRelations;
+use JustRaviga\LaravelDynamodbExtreme\Traits\HasQueryBuilder;
+use JustRaviga\LaravelDynamodbExtreme\Traits\HasRelations;
+use JustRaviga\LaravelDynamodbExtreme\Traits\UsesDynamoDbAdapter;
 use Ramsey\Uuid\Uuid;
 use stdClass;
 

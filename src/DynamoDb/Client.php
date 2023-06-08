@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\DynamoDb;
+namespace JustRaviga\LaravelDynamodbExtreme\DynamoDb;
 
 use Aws\DynamoDb\DynamoDbClient;
 use Aws\DynamoDb\Marshaler;
 use Aws\Result;
 use Aws\Sdk;
-use JustRaviga\DynamoDb\Enums\DynamoDbQueryType;
-use JustRaviga\DynamoDb\Exceptions\DynamoDbQueryError;
+use JustRaviga\LaravelDynamodbExtreme\Enums\DynamoDbQueryType;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\DynamoDbQueryError;
 use Illuminate\Support\Facades\Log;
 
 class Client

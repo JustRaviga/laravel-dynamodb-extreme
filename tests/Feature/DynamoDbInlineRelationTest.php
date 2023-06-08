@@ -1,6 +1,6 @@
 <?php
 
-use JustRaviga\DynamoDb\DynamoDb\Client;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Client;
 use Illuminate\Support\Collection;
 use Ramsey\Uuid\Uuid;
 use Tests\Resources\DemoModelInlineRelation;

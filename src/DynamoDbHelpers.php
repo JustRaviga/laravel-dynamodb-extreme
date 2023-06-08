@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb;
+namespace JustRaviga\LaravelDynamodbExtreme;
 
 class DynamoDbHelpers
 {

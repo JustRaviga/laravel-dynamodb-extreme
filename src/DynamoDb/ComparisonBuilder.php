@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\DynamoDb;
+namespace JustRaviga\LaravelDynamodbExtreme\DynamoDb;
 
-use JustRaviga\DynamoDb\DynamoDb\Comparisons\BeginsWithComparison;
-use JustRaviga\DynamoDb\DynamoDb\Comparisons\BetweenComparison;
-use JustRaviga\DynamoDb\DynamoDb\Comparisons\Comparison;
-use JustRaviga\DynamoDb\DynamoDb\Comparisons\EqualsComparison;
-use JustRaviga\DynamoDb\DynamoDb\Comparisons\GreaterThanComparison;
-use JustRaviga\DynamoDb\DynamoDb\Comparisons\GreaterThanOrEqualComparison;
-use JustRaviga\DynamoDb\DynamoDb\Comparisons\LessThanComparison;
-use JustRaviga\DynamoDb\DynamoDb\Comparisons\LessThanOrEqualComparison;
-use JustRaviga\DynamoDb\Exceptions\QueryBuilderInvalidQuery;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Comparisons\BeginsWithComparison;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Comparisons\BetweenComparison;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Comparisons\Comparison;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Comparisons\EqualsComparison;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Comparisons\GreaterThanComparison;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Comparisons\GreaterThanOrEqualComparison;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Comparisons\LessThanComparison;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Comparisons\LessThanOrEqualComparison;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\QueryBuilderInvalidQuery;
 
 class ComparisonBuilder
 {

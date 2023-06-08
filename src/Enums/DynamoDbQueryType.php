@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace JustRaviga\DynamoDb\Enums;
+namespace JustRaviga\LaravelDynamodbExtreme\Enums;
 
 enum DynamoDbQueryType: string
 {
