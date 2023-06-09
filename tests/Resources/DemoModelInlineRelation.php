@@ -2,6 +2,8 @@
 
 namespace Tests\Resources;
 
+use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
+
 /**
  * @property string $pk
  * @property string $sk
@@ -9,7 +11,7 @@ namespace Tests\Resources;
  * @property string $test
  * @property string $test2
  */
-class DemoModelInlineRelation extends \JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel
+class DemoModelInlineRelation extends DynamoDbModel
 {
     protected static string $table = 'test';
 

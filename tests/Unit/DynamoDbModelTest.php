@@ -4,11 +4,14 @@ namespace Tests\Unit;
 
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDbHelpers;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\AttributeCastError;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\PropertyNotFillable;
 use Tests\Resources\DemoModel;
+use Tests\Resources\DemoModelInlineRelation;
 use Tests\Resources\DemoModelWithCasts;
 use Tests\Resources\DemoModelWithDefaultAttributes;
+use Tests\Resources\DemoModelWithInlineRelation;
 use Tests\Resources\DemoModelWithSchema;
 
 it('can instantiate a model', function() {
@@ -182,4 +185,10 @@ it('sets default values on attributes that are fillable', function() {
     $model = new DemoModelWithDefaultAttributes();
 
     expect($model->name)->toBe('Fred');
+});
+it('creates default partition key based on parent model', function() {
+    $model = new DemoModelInlineRelation();
+
+    expect($model->pk)
+        ->toStartWith(DynamoDbHelpers::upperCaseClassName(DemoModelWithInlineRelation::class) . '#');
 });

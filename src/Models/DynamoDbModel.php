@@ -176,8 +176,8 @@ abstract class DynamoDbModel
 
     public function defaultPartitionKey(): string
     {
-        if (self::$parent !== null) {
-            return DynamoDbHelpers::upperCaseClassName(self::$parent::class) . '#' . Uuid::uuid7()->toString();
+        if (static::$parent !== null) {
+            return DynamoDbHelpers::upperCaseClassName(static::$parent) . '#' . Uuid::uuid7()->toString();
         }
 
         return DynamoDbHelpers::upperCaseClassName(static::class) . '#' . Uuid::uuid7()->toString();
