@@ -6,6 +6,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use JustRaviga\LaravelDynamodbExtreme\DynamoDbHelpers;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\AttributeCastError;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\PartitionKeyNotSet;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\PropertyNotFillable;
 use Tests\Resources\DemoModel;
 use Tests\Resources\DemoModelInlineRelation;
@@ -192,3 +193,27 @@ it('creates default partition key based on parent model', function() {
     expect($model->pk)
         ->toStartWith(DynamoDbHelpers::upperCaseClassName(DemoModelWithInlineRelation::class) . '#');
 });
+it('uses table name based on parent model', function() {
+    $model = new DemoModelInlineRelation();
+    $parent = new DemoModelWithInlineRelation();
+
+    expect($model::table())
+        ->toBe($parent::table());
+});
+it('returns a models attributes when casting to array', function() {
+    $model = DemoModel::make();
+    $array = $model->toArray();
+
+    expect($array)->toBeArray()
+        ->and($array)->toHaveKeys(['pk', 'mapped']);
+});
+it('can get empty unique key name when not overridden', function() {
+    $model = new DemoModel();
+
+    expect($model->uniqueKeyName())->toBe('');
+});
+it('throws an error when attempting to get an unfillable attribute', function() {
+    $model = new DemoModel();
+
+    $model->something;
+})->throws(PropertyNotFillable::class);

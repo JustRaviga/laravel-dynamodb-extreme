@@ -113,20 +113,6 @@ abstract class DynamoDbModel
             return;
         }
 
-        // Might be a relation
-        if (method_exists($this, $property)) {
-            $relation = $this->$property();
-
-            if ($relation instanceof InlineRelation) {
-                collect($value)->each(function ($value) use ($relation): void {
-                    $class = $relation->relatedModel();
-                    $model = $class::make($value);
-                    $relation->add($model);
-                });
-                return;
-            }
-        }
-
         throw new PropertyNotFillable($property);
     }
 
@@ -195,7 +181,6 @@ abstract class DynamoDbModel
     public function delete(): static
     {
         $attributes = $this->unFill();
-        $this->validateAttributes($attributes);
 
         $adapter = self::adapter();
         $adapter->delete(
@@ -263,11 +248,6 @@ abstract class DynamoDbModel
         return new static($attributes);
     }
 
-    public static function parent(): string
-    {
-        return self::$parent;
-    }
-
     public static function partitionKey(?string $index = null): string
     {
         return self::$globalSecondaryIndexes[$index][self::$partitionKey] ?? self::$partitionKey;
@@ -300,9 +280,6 @@ abstract class DynamoDbModel
         // Perform any transformations (casts, mappings)
         $attributes = $this->unFill();
 
-        // Ensure PK and SK are set
-        $this->validateAttributes($attributes);
-
         self::adapter()->save($this, $attributes);
 
         // Now we have persisted our data, we no longer have any dirty data
@@ -319,9 +296,9 @@ abstract class DynamoDbModel
 
     public static function table(): string
     {
-        if (isset(self::$parent)) {
+        if (isset(static::$parent)) {
             /** @var class-string<DynamoDbModel> $parent */
-            $parent = self::$parent;
+            $parent = static::$parent;
             return $parent::table();
         }
 

@@ -402,21 +402,4 @@ trait HasAttributes
     {
         $this->original = $attributes;
     }
-
-    /**
-     * Checks that a partition key and sort key are set in the model's attributes.
-     * @param array<string, string|array|number|object> $attributes
-     * @throws PartitionKeyNotSet If the partition key is not set
-     * @throws SortKeyNotSet If the sort key is not set
-     */
-    protected function validateAttributes(array $attributes): void
-    {
-        if (!array_key_exists($this->partitionKey(), $attributes)) {
-            throw new PartitionKeyNotSet();
-        }
-
-        if (!array_key_exists($this->sortKey(), $attributes)) {
-            throw new SortKeyNotSet();
-        }
-    }
 }

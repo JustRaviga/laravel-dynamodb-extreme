@@ -13,8 +13,6 @@ use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
  */
 class DemoModelInlineRelation extends DynamoDbModel
 {
-    protected static string $table = 'test';
-
     public static ?string $parent = DemoModelWithInlineRelation::class;
 
     public array $fillable = [
