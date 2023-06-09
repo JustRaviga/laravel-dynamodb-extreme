@@ -3,9 +3,11 @@
 namespace Tests\Unit;
 
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\PropertyNotFillable;
 use Tests\Resources\DemoModel;
 use Tests\Resources\DemoModelWithCasts;
+use Tests\Resources\DemoModelWithSchema;
 
 it('can instantiate a model', function() {
     // These models should be instantiatable with no side effects
@@ -113,12 +115,33 @@ it('correctly casts a custom cast value', function() {
 
     expect($model->reversed)->toBe('olleh');
 });
-it('correctly casts a custom cast value when saving values to dynamodb', function() {
-    $model = DemoModelWithCasts::create([
-        'reversed' => 'hello',
+it('correctly passes validation when making a model instance', function() {
+    $value = 'hello';
+
+    // will be validated automatically when adding each attribute
+    $model = DemoModelWithSchema::make([
+        'name' => $value,
     ]);
 
-    $model = DemoModelWithCasts::findOrFail($model->pk, $model->sk);
-
-    expect($model->reversed)->toBe('olleh');
+    expect($model->name)->toBe($value);
 });
+it('correctly fails validation when making a model instance', function() {
+    $value = [];
+    $model = DemoModelWithSchema::make([
+        'name' => $value,
+    ]);
+})->throws(ValidationException::class);
+it('correctly passes validation when setting an attribute to a model', function() {
+    $value = 'hello';
+    $model = DemoModelWithSchema::make();
+
+    $model->name = $value;
+
+    expect($model->name)->toBe($value);
+});
+it('correctly fails validation when setting an attribute to a model', function() {
+    $value = [];
+    $model = DemoModelWithSchema::make();
+
+    $model->name = $value;
+})->throws(ValidationException::class);
