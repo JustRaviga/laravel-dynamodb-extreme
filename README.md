@@ -376,7 +376,7 @@ class Model extends \DynamoDb\Models\DynamoDbModel
 
 You can define mappings from secondary indexes to friendly model properties in the `$fieldMappings` array too.
 ```php
-class Model extends \JustRaviga\DynamoDb\Models\DynamoDbModel
+class Model extends \JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel
 {
     // optional
     protected array $fieldMappings = [
