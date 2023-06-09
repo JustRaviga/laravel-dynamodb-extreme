@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Collection;
 use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Client;
+use JustRaviga\LaravelDynamodbExtreme\DynamoDbQueryBuilder;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\InvalidRelation;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\QueryBuilderInvalidQuery;
 use Ramsey\Uuid\Uuid;
 use Tests\Resources\DemoModel;
@@ -166,6 +168,12 @@ it('can paginate relationships', function() {
         ->and($moreMessages->hasMoreResults())->toBeTrue()
         ->and(Client::$queryCount)->toBe($modelCount + 3);
 });
+it('throws an error if a relation is requested without a model', function() {
+    (new DynamoDbQueryBuilder())->withRelation('related');
+})->throws(QueryBuilderInvalidQuery::class);
+it('throws an error if a relation is requested that does not exist', function() {
+    DemoModelWithRelation::withRelation('something')->first();
+})->throws(InvalidRelation::class);
 //it('throws an error if the requested model is not returned from a query', function() {
 //    $parentModel = DemoModelWithRelation::create([
 //        'pk' => 'DEMOMODEL#' . Uuid::uuid7()->toString(),

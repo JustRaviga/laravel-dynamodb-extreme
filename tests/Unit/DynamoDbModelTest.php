@@ -4,9 +4,11 @@ namespace Tests\Unit;
 
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\AttributeCastError;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\PropertyNotFillable;
 use Tests\Resources\DemoModel;
 use Tests\Resources\DemoModelWithCasts;
+use Tests\Resources\DemoModelWithDefaultAttributes;
 use Tests\Resources\DemoModelWithSchema;
 
 it('can instantiate a model', function() {
@@ -108,6 +110,25 @@ it('correctly casts attributes when saving values to dynamodb', function() {
         ->and($model->collection_field)->toBeInstanceOf(Collection::class)
         ->and($model->collection_field)->toHaveCount(3);
 });
+it('can cast multiple data types to json', function() {
+    $model = DemoModelWithCasts::make([
+        // scenario 1: value is an object, we want an object
+        'object_field' => (object) ['hello' => 'world'],
+
+        // scenario 2: value is an object, we want an array
+        'array_field' => (object) ['hello' => 'world'],
+    ]);
+
+    expect($model->object_field)->toBeObject()
+        ->and($model->object_field)->toHaveProperty('hello')
+        ->and($model->array_field)->toBeArray()
+        ->and($model->array_field)->toHaveKey('hello');
+});
+it('throws an error when casting invalid json to an array', function() {
+    $model = DemoModelWithCasts::make([
+        'array_field' => '["hello": "world"]', // invalid because an assoc. array should be in curly braces
+    ]);
+})->throws(AttributeCastError::class);
 it('correctly casts a custom cast value', function() {
     $model = DemoModelWithCasts::make([
         'reversed' => 'hello',
@@ -115,6 +136,18 @@ it('correctly casts a custom cast value', function() {
 
     expect($model->reversed)->toBe('olleh');
 });
+it('returns the same data if a cast cannot be used', function() {
+    $model = DemoModelWithCasts::make([
+        'no_cast' => 'value',
+    ]);
+
+    expect($model->no_cast)->toBe('value');
+});
+it('fails to cast a custom cast value that is malformed', function() {
+    $model = DemoModelWithCasts::make([
+        'invalid' => 'value',
+    ]);
+})->throws(AttributeCastError::class);
 it('correctly passes validation when making a model instance', function() {
     $value = 'hello';
 
@@ -145,3 +178,8 @@ it('correctly fails validation when setting an attribute to a model', function()
 
     $model->name = $value;
 })->throws(ValidationException::class);
+it('sets default values on attributes that are fillable', function() {
+    $model = new DemoModelWithDefaultAttributes();
+
+    expect($model->name)->toBe('Fred');
+});

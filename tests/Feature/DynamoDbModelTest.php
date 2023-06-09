@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Client;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\AttributeCastError;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\QueryBuilderInvalidQuery;
 use Ramsey\Uuid\Uuid;
 use Tests\Resources\DemoModel;
@@ -284,6 +285,19 @@ it('correctly casts a custom cast value when saving values to dynamodb', functio
 
     expect($model->reversed)->toBe('olleh')
         ->and(Client::$queryCount)->toBe(2);
+});
+it('fails to cast a custom cast value that is malformed', function() {
+    $model = DemoModelWithCasts::make();
+    $model->invalid = 'value';
+    $model->save();
+})->throws(AttributeCastError::class);
+it('does not alter a value if a cast cannot be used', function() {
+    $model = DemoModelWithCasts::make();
+
+    $model->no_cast = 'value';
+    $model->save();
+
+    expect($model->no_cast)->toBe('value');
 });
 it('correctly validates schema when updating model in dynamodb', function() {
     $model = DemoModelWithSchema::make();

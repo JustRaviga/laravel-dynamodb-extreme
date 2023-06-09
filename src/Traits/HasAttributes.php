@@ -275,16 +275,6 @@ trait HasAttributes
     }
 
     /**
-     * @return array<string,string>
-     */
-    protected function getReverseMappedDirtyAttributes(): array
-    {
-        return collect($this->dirty)->mapWithKeys(function($_, $attrName) {
-            return [$this->getReverseMappedPropertyName($attrName) => $this->attributes[$attrName]];
-        })->toArray();
-    }
-
-    /**
      * Checks $this->fieldMappings for a mapped property relationship and returns the key property
      * @return string the name of the property, mapped backwards
      */
@@ -348,12 +338,11 @@ trait HasAttributes
                 case 'set:number':
                 case 'set:binary':
                 case 'map':
+                    // DynamoDb handles packing these data types for us
                     return $value;
 
                 case 'array':
                 case 'json':
-//                    return json_encode($value);
-
                 case 'object':
                     return json_encode($value);
 
@@ -382,7 +371,7 @@ trait HasAttributes
             return $castObject->set($this, $attributeName, $value, $this->attributes);
         }
 
-        // No way to pack this value to just return it with no transformation
+        // No way to pack this value so just return it with no transformation
         return $value;
     }
 

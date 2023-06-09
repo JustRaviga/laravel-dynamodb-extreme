@@ -420,3 +420,7 @@ requests have returned their data.
 > Table generation in code
 
 Essentially Laravel's migration system for DynamoDb tables
+
+> Cascade deletions
+
+Delete related models after deleting a parent model

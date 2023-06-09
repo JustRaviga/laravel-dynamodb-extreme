@@ -9,21 +9,19 @@ use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
  * @property string $sk
  * @property string $name
  */
-class DemoModelWithSchema extends DynamoDbModel {
+class DemoModelWithDefaultAttributes extends DynamoDbModel {
     protected static string $table = 'test';
 
     public array $fillable = [
         'pk',
         'sk',
-
         'name',
     ];
 
-    protected array $casts = [
-        'created_at' => 'datetime',
-    ];
-
-    protected array $schema = [
-        'name' => 'required|string|max:255',
-    ];
+    public function defaultValues(): array
+    {
+        return [
+            'name' => 'Fred',
+        ];
+    }
 }

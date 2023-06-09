@@ -2,6 +2,7 @@
 
 namespace Tests\Resources;
 
+use Illuminate\Support\Facades\Request;
 use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
 
 /**
@@ -17,6 +18,8 @@ use JustRaviga\LaravelDynamodbExtreme\Models\DynamoDbModel;
  * @property string $binary_set_field
  * @property string $collection_field
  * @property string $reversed
+ * @property string $no_cast
+ * @property string $invalid
  */
 class DemoModelWithCasts extends DynamoDbModel {
     protected static string $table = 'test';
@@ -36,6 +39,8 @@ class DemoModelWithCasts extends DynamoDbModel {
         'collection_field',
 
         'reversed',
+        'no_cast',
+        'invalid',
 
         // todo
         'date_field',
@@ -52,6 +57,10 @@ class DemoModelWithCasts extends DynamoDbModel {
         'binary_set_field' => 'set:binary',
         'collection_field' => 'collection',
 
-        'reversed' => DemoAttributeCast::class
+        'reversed' => DemoAttributeCast::class,
+
+        'invalid' => Request::class, // this is not a validator class
+
+        'no_cast' => 'unknown-cast-method',
     ];
 }
