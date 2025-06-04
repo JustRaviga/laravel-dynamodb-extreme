@@ -5,9 +5,12 @@ namespace Tests\Feature;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 use JustRaviga\LaravelDynamodbExtreme\DynamoDb\Client;
+use JustRaviga\LaravelDynamodbExtreme\Exceptions\AttributeCastError;
 use JustRaviga\LaravelDynamodbExtreme\Exceptions\QueryBuilderInvalidQuery;
 use Ramsey\Uuid\Uuid;
 use Tests\Resources\DemoModel;
+use Tests\Resources\DemoModelWithCasts;
+use Tests\Resources\DemoModelWithSchema;
 
 beforeEach(function() {
     /**
@@ -271,4 +274,61 @@ it('stores a list of changed attributes when updating a model not loaded from th
         ->and($model->dirtyAttributes())->toHaveKeys(['test', 'test2', 'pk', 'mapped'])
         ->and($model->dirtyAttributes()['test2'])->toBe($value)
         ->and(Client::$queryCount)->toBe(0);
+});
+it('correctly casts a custom cast value when saving values to dynamodb', function() {
+    // todo move this to feature tests
+    $model = DemoModelWithCasts::create([
+        'reversed' => 'hello',
+    ]);
+
+    $model = DemoModelWithCasts::findOrFail($model->pk, $model->sk);
+
+    expect($model->reversed)->toBe('olleh')
+        ->and(Client::$queryCount)->toBe(2);
+});
+it('fails to cast a custom cast value that is malformed', function() {
+    $model = DemoModelWithCasts::make();
+    $model->invalid = 'value';
+    $model->save();
+})->throws(AttributeCastError::class);
+it('does not alter a value if a cast cannot be used', function() {
+    $model = DemoModelWithCasts::make();
+
+    $model->no_cast = 'value';
+    $model->save();
+
+    expect($model->no_cast)->toBe('value');
+});
+it('correctly validates schema when updating model in dynamodb', function() {
+    $model = DemoModelWithSchema::make();
+
+    $model->update([
+        'name' => 'fred',
+    ]);
+
+    $model = DemoModelWithSchema::findOrFail($model->pk, $model->sk);
+
+    expect($model->name)->toBe('fred')
+        ->and(Client::$queryCount)->toBe(2);
+});
+it('correctly validates schema when saving model in dynamodb', function() {
+    $model = DemoModelWithSchema::make();
+
+    $model->name = 'fred';
+    $model->save();
+
+    $model = DemoModelWithSchema::findOrFail($model->pk, $model->sk);
+
+    expect($model->name)->toBe('fred')
+        ->and(Client::$queryCount)->toBe(2);
+});
+it('correctly validates schema when creating model in dynamodb', function() {
+    $model = DemoModelWithSchema::create([
+        'name' => 'fred',
+    ]);
+
+    $model = DemoModelWithSchema::findOrFail($model->pk, $model->sk);
+
+    expect($model->name)->toBe('fred')
+        ->and(Client::$queryCount)->toBe(2);
 });

@@ -17,14 +17,6 @@ trait HasRelations
     protected array $relations = [];
 
     /**
-     * Returns a name by which this model is known as a relation to other models.
-     */
-    public static function relationName(): string
-    {
-        return static::class;
-    }
-
-    /**
      * Used for matching on sort keys for related models
      * @return array<string,string,string>
      */
@@ -37,14 +29,6 @@ trait HasRelations
             'begins_with',
             "{$className}#"
         ];
-    }
-
-    /**
-     * @return array<Relation> the relations already loaded for this model
-     */
-    public function relations(): array
-    {
-        return $this->relations;
     }
 
     /**

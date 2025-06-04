@@ -14,6 +14,7 @@ use JustRaviga\LaravelDynamodbExtreme\Traits\HasAttributes;
 use JustRaviga\LaravelDynamodbExtreme\Traits\HasInlineRelations;
 use JustRaviga\LaravelDynamodbExtreme\Traits\HasQueryBuilder;
 use JustRaviga\LaravelDynamodbExtreme\Traits\HasRelations;
+use JustRaviga\LaravelDynamodbExtreme\Traits\HasSchema;
 use JustRaviga\LaravelDynamodbExtreme\Traits\UsesDynamoDbAdapter;
 use Ramsey\Uuid\Uuid;
 use stdClass;
@@ -24,6 +25,7 @@ abstract class DynamoDbModel
         HasInlineRelations,
         HasQueryBuilder,
         HasRelations,
+        HasSchema,
         UsesDynamoDbAdapter;
 
     /**
@@ -49,7 +51,7 @@ abstract class DynamoDbModel
     protected static string $table = '';
 
     /**
-     * @param array<string,string> $attributes
+     * @param array<string,mixed> $attributes
      */
     public function __construct(array $attributes = [], bool $loading = false)
     {
@@ -64,6 +66,9 @@ abstract class DynamoDbModel
         if ($loading === true) {
             $this->storeOriginalAttributes($attributes);
         }
+
+        $this->castAttributes($attributes);
+
         $this->fill($attributes);
     }
 
@@ -96,25 +101,16 @@ abstract class DynamoDbModel
     {
         // Check if this is a fillable attribute
         if ($this->isFillable($property)) {
+            // Validate the incoming data against the model's schema
+            $this->validateSchemaForAttribute($property, $value);
+
             // An attribute is considered dirty if it wasn't loaded from the database or its value is changing
             $this->handleDirtyAttribute($property, $value);
 
+            // Set the attribute value _after_ checking if it's dirty so we have the opportunity to compare old/new data
             $this->attributes[$property] = $value;
+
             return;
-        }
-
-        // Might be a relation
-        if (method_exists($this, $property)) {
-            $relation = $this->$property();
-
-            if ($relation instanceof InlineRelation) {
-                collect($value)->each(function ($value) use ($relation): void {
-                    $class = $relation->relatedModel();
-                    $model = $class::make($value);
-                    $relation->add($model);
-                });
-                return;
-            }
         }
 
         throw new PropertyNotFillable($property);
@@ -157,7 +153,7 @@ abstract class DynamoDbModel
 
     /**
      * Returns a populated instance of the model after persisting to DynamoDb.
-     * @param array<string,string> $attributes
+     * @param array<string,mixed> $attributes
      */
     public static function create(array $attributes = []): static
     {
@@ -166,8 +162,8 @@ abstract class DynamoDbModel
 
     public function defaultPartitionKey(): string
     {
-        if (self::$parent !== null) {
-            return DynamoDbHelpers::upperCaseClassName(self::$parent::class) . '#' . Uuid::uuid7()->toString();
+        if (static::$parent !== null) {
+            return DynamoDbHelpers::upperCaseClassName(static::$parent) . '#' . Uuid::uuid7()->toString();
         }
 
         return DynamoDbHelpers::upperCaseClassName(static::class) . '#' . Uuid::uuid7()->toString();
@@ -185,7 +181,6 @@ abstract class DynamoDbModel
     public function delete(): static
     {
         $attributes = $this->unFill();
-        $this->validateAttributes($attributes);
 
         $adapter = self::adapter();
         $adapter->delete(
@@ -246,16 +241,11 @@ abstract class DynamoDbModel
 
     /**
      * Returns a populated instance of the model without persisting to DynamoDb.
-     * @param array<string,string> $attributes
+     * @param array<string,mixed> $attributes
      */
     public static function make(array $attributes = []): static
     {
         return new static($attributes);
-    }
-
-    public static function parent(): string
-    {
-        return self::$parent;
     }
 
     public static function partitionKey(?string $index = null): string
@@ -285,8 +275,10 @@ abstract class DynamoDbModel
      */
     public function save(): static
     {
+        // Validate against the model schema
+        $this->validateSchema($this->attributes);
+        // Perform any transformations (casts, mappings)
         $attributes = $this->unFill();
-        $this->validateAttributes($attributes);
 
         self::adapter()->save($this, $attributes);
 
@@ -304,9 +296,9 @@ abstract class DynamoDbModel
 
     public static function table(): string
     {
-        if (isset(self::$parent)) {
+        if (isset(static::$parent)) {
             /** @var class-string<DynamoDbModel> $parent */
-            $parent = self::$parent;
+            $parent = static::$parent;
             return $parent::table();
         }
 
@@ -328,6 +320,9 @@ abstract class DynamoDbModel
         $attributes = collect($this->attributes)
             ->mapWithKeys(fn ($value, $attribute) => [$this->getReverseMappedPropertyName($attribute) => $value])
             ->toArray();
+
+        // Apply any casts
+        $this->packAttributes($attributes);
 
         // Apply any loaded inline-relations
         foreach($this->inlineRelations() as $relation)
@@ -375,6 +370,8 @@ abstract class DynamoDbModel
             // No dirty attributes, no need to make a request to Dynamo
             return $this;
         }
+
+        $this->validateSchema($this->attributes);
 
         // get the values transformed back to 'database ready' versions
         $attributes = collect($this->unFill());
